@@ -1,43 +1,31 @@
 <!doctype html>
 <html lang="tr">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#081019">
-  <meta name="description" content="Pofçu ile kripto piyasasını veri zamanı, RSI, MACD, trend, hacim ve risk göstergeleriyle inceleyin. Şeffaf, açıklanabilir piyasa analizi.">
-  <title>Pofçu — Kripto piyasasını sakin kafayla oku</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0a1018"><meta name="description" content="Pofçu piyasa terminali: Binance spot grafiği, canlı fiyat, indikatörler ve açıklanabilir teknik analiz.">
+  <title>Pofçu Terminal — Kripto piyasasını incele</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css">
   <script type="module" src="app.mjs"></script>
 </head>
 <body>
-  <div class="topline"></div>
-  <header class="nav shell">
-    <a class="brand" href="#baslangic" aria-label="Pofçu ana sayfa"><span class="brandmark">P<span class="branddot">●</span></span><span>Pofçu<span class="brand-ext">.com</span></span></a>
-    <nav aria-label="Ana menü"><a href="#analiz">Analiz</a><a href="#metodoloji">Nasıl çalışır?</a></nav>
-    <span class="nav-tag"><span class="pulse"></span> CANLI PİYASA VERİSİ</span>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Pofçu Terminal ana sayfa"><span class="brandmark">P<span>●</span></span><span>POFÇU<small>TERMINAL</small></span></a>
+    <div class="top-divider"></div>
+    <button id="pair-picker" class="pair-picker" type="button" aria-label="Parite seç"><span id="pair-text">BTC / USDT</span><span class="chevron">⌄</span></button>
+    <div class="timeframes" role="group" aria-label="Grafik zaman aralığı"><button data-interval="15m">15d</button><button data-interval="1h" class="active">1s</button><button data-interval="4h">4s</button><button data-interval="1d">1g</button><button data-interval="1w">1hft</button></div>
+    <span class="top-spacer"></span><span class="connection"><span class="dot"></span> BINANCE SPOT</span><button id="refresh" class="icon-button" type="button" title="Verileri yenile" aria-label="Verileri yenile">↻</button>
   </header>
-  <main id="baslangic">
-    <section class="hero shell">
-      <div class="hero-copy"><div class="eyebrow"><span class="eyebrow-line"></span> POFCU MARKET INTELLIGENCE <span class="v">/ 01</span></div>
-        <h1>Piyasayı <em>hissetme.</em><br><span>Veriyi oku.</span></h1>
-        <p>Kripto varlıkları tek bir indikatörle değil; trend, momentum, hacim ve risk verilerini birlikte değerlendirerek incele.</p>
-        <a class="hero-link" href="#analiz">Analize başla <span aria-hidden="true">↗</span></a>
-      </div>
-      <div class="hero-panel" aria-hidden="true"><div class="orb orb-a"></div><div class="orb orb-b"></div><div class="scan"></div><div class="hero-graphic"><span>DATA / SIGNAL</span><strong>01<span>—</span>08</strong><small>CLARITY IN EVERY MOVE</small></div></div>
-    </section>
-
-    <section class="analysis shell" id="analiz" aria-labelledby="analysis-title">
-      <div class="section-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> ANALİZ MASASI <span class="v">/ 02</span></div><h2 id="analysis-title">Varlığını seç, <span>resmi gör.</span></h2></div><p>Analiz kapanmış mumlara dayanır. Her yenilemede güncel piyasa verileri çekilir.</p></div>
-      <div class="workspace">
-        <div class="controls"><label for="asset">KRİPTO VARLIK</label><div class="select-wrap"><select id="asset"><option value="BTCUSDT">BTC / USDT — Bitcoin</option><option value="ETHUSDT">ETH / USDT — Ethereum</option><option value="SOLUSDT">SOL / USDT — Solana</option><option value="BNBUSDT">BNB / USDT — BNB</option><option value="XRPUSDT">XRP / USDT — XRP</option><option value="ADAUSDT">ADA / USDT — Cardano</option><option value="DOGEUSDT">DOGE / USDT — Dogecoin</option><option value="AVAXUSDT">AVAX / USDT — Avalanche</option></select></div><div class="control-separator"></div><div class="control-label" id="interval-label">ZAMAN ARALIĞI</div><div class="intervals" role="group" aria-labelledby="interval-label"><button class="selected" type="button" data-interval="1h" aria-pressed="true">1 SAAT</button><button type="button" data-interval="4h" aria-pressed="false">4 SAAT</button><button type="button" data-interval="1d" aria-pressed="false">1 GÜN</button></div><button id="run" class="run" type="button">Piyasayı analiz et <span aria-hidden="true">↗</span></button><div class="control-foot"><span class="pulse"></span> Binance spot verisi<br><span class="minor">USDT pariteleri · Otomatik işlem yapılmaz</span></div></div>
-        <div class="result" id="result" aria-live="polite"><div class="empty"><div class="empty-glyph">⌁</div><div class="eyebrow">VERİ SENİ BEKLİYOR</div><h3>Bir varlık seç ve<br>analizi başlat.</h3><p>Göstergeler, sinyal gerekçeleri ve risk notları burada görünecek.</p></div></div>
-      </div>
-      <div id="fundamentals" class="fundamentals hidden" aria-live="polite"></div>
-    </section>
-
-    <section class="method shell" id="metodoloji"><div class="section-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> METODOLOJİ <span class="v">/ 03</span></div><h2>Tek veriyle <span>karar verme.</span></h2></div></div><div class="method-grid"><article><span class="method-n">01 / TREND</span><h3>Yönü tanı</h3><p>EMA 20, 50 ve 200 ile fiyatın kısa ve uzun dönem eğilimini karşılaştır.</p></article><article><span class="method-n">02 / MOMENTUM</span><h3>İvmeyi ölç</h3><p>RSI ve MACD ile hareketin gücünü ve olası yorgunluk işaretlerini gör.</p></article><article><span class="method-n">03 / RİSK</span><h3>Oynaklığı izle</h3><p>ATR, ADX, Bollinger bantları ve hacmi birlikte yorumla.</p></article></div><div class="disclosure"><span>ℹ</span><p>Gösterilen alım ve satış sinyalleri yalnızca teknik göstergelerin kurallı yorumudur. Gelecekteki getiriyi öngörmez; yatırım tavsiyesi değildir. Makroekonomi, haberler, zincir üstü veriler ve proje finansalları bu teknik skora dahil değildir.</p></div></section>
-  </main>
-  <footer class="shell"><div class="footer-brand">Pofçu<span>●</span></div><p>Veriye bak. Riski bil. Kararı kendin ver.</p><span>© <span id="year"></span> POFÇU.COM</span></footer>
+  <div class="terminal">
+    <aside class="watchlist" aria-label="İzleme listesi"><div class="watch-head"><div><span class="overline">PİYASA</span><h2>İzleme listesi</h2></div><button id="watch-add" class="icon-button" type="button" title="Parite ara" aria-label="Parite ara">＋</button></div><button class="watch-search" id="watch-search" type="button"><span>⌕</span> Parite ara <kbd>/</kbd></button><div class="watch-tabs"><span>PARİTE</span><span>24 SAAT</span></div><div id="watch-items" class="watch-items"></div><div class="watch-foot"><span class="dot"></span> Borsa verisi · 15 sn fiyat güncellemesi</div></aside>
+    <main class="workspace">
+      <div class="market-head"><div class="market-title"><div class="symbol-line"><span class="coin-icon" id="coin-icon">₿</span><div><h1 id="asset-name">Bitcoin <span id="pair-label">BTC / USDT</span></h1><div class="market-sub">Binance Spot <span>·</span> <span id="last-update">Veri bekleniyor</span></div></div></div></div><div class="market-stats"><div><small>SON FİYAT</small><strong id="live-price">—</strong></div><div><small>24S DEĞİŞİM</small><strong id="day-change">—</strong></div><div class="hide-small"><small>24S EN YÜKSEK / DÜŞÜK</small><strong id="day-range">—</strong></div></div></div>
+      <div class="chart-toolbar"><div class="toolbar-group"><span class="overline">GRAFİK</span><button id="toggle-ema" class="tool-toggle on" aria-pressed="true" type="button"><i class="legend-dot lime"></i> EMA 20/50</button><button id="toggle-bb" class="tool-toggle" aria-pressed="false" type="button"><i class="legend-dot blue"></i> Bollinger</button><button id="toggle-volume" class="tool-toggle on" aria-pressed="true" type="button">Hacim</button></div><div class="toolbar-group right"><span id="ohlc" class="ohlc">Mumun üzerine gel: açılış · yüksek · düşük · kapanış</span><button id="reset-zoom" class="tool-toggle" type="button" title="Grafiği sıfırla">Sıfırla</button></div></div>
+      <div class="chart-shell"><canvas id="price-chart" role="img" aria-label="Kapanmış mumlarla fiyat ve hacim grafiği"></canvas><div id="chart-error" class="chart-error hidden"></div><div class="chart-hint">Yakınlaştır: kaydır · Geçmişi gez: sürükle</div></div>
+      <div class="pane-grid"><section class="indicator-pane"><div class="pane-heading"><span><i class="legend-dot violet"></i> RSI <small>(14)</small></span><strong id="rsi-value">—</strong></div><canvas id="rsi-chart" role="img" aria-label="RSI göstergesi"></canvas></section><section class="indicator-pane"><div class="pane-heading"><span><i class="legend-dot blue"></i> MACD <small>(12, 26, 9)</small></span><strong id="macd-value">—</strong></div><canvas id="macd-chart" role="img" aria-label="MACD histogramı"></canvas></section></div>
+      <div class="bottom-strip"><span>FİYAT GRAFİĞİ <b>●</b> KAPANMIŞ MUMLAR</span><span id="chart-time">—</span><span>Grafik ve teknik skor yatırım tavsiyesi değildir.</span></div>
+    </main>
+    <aside class="insights" aria-label="Analiz paneli"><div class="insights-head"><div><span class="overline">VERİYE DAYALI</span><h2>Analiz paneli</h2></div><span class="head-icon">⌁</span></div><div id="analysis-content" aria-live="polite"><div class="loading"><div class="loading-ring"></div><p>Göstergeler hesaplanıyor…</p></div></div><section class="ai-panel"><div class="ai-title"><span>✦</span> AI yorumu</div><p id="ai-description">Teknik analiz hazır. Yapay zekâ yorumu, sunucu API anahtarı etkinleştiğinde burada açılır.</p><button id="ai-button" type="button" class="ai-button hidden">Yapay zekâ ile yorumla ↗</button><div id="ai-output" class="ai-output" aria-live="polite"></div></section><div class="insights-foot">Otomatik alım satım yapılmaz. Sinyal geçmiş verilere dayanır; getiri garantisi değildir.</div></aside>
+  </div>
+  <dialog id="symbol-dialog" class="symbol-dialog" aria-label="Parite ara"><div class="dialog-top"><div><span class="overline">BINANCE SPOT</span><h2>Parite seç</h2></div><button id="dialog-close" class="icon-button" type="button" aria-label="Kapat">×</button></div><label class="dialog-search"><span>⌕</span><input id="symbol-input" type="search" placeholder="BTCUSDT, CRVTRY, ETH…" autocomplete="off" spellcheck="false"></label><div id="symbol-results" class="symbol-results"></div><p>USDT, TRY, USDC, BTC ve FDUSD spot pariteleri · Kaynak: Binance</p></dialog>
 </body>
 </html>

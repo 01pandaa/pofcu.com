@@ -32,3 +32,10 @@ test('yön ve gerekçeler hesaplanan veriden çıkar',()=>{
   assert.equal(up.factors.length,5);
   assert.ok(up.chart.length<=72);
 });
+test('TRY paritesi ve 15 dakikalık zaman aralığı da analiz edilir',()=>{
+  const prices=Array.from({length:260},(_,i)=>18+i*.025);
+  const result=analyze(candles(prices),'15m','CRVTRY');
+  assert.equal(result.symbol,'CRVTRY');
+  assert.equal(result.interval,'15m');
+  assert.ok(Number.isFinite(result.indicators.rsi));
+});

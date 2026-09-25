@@ -7,9 +7,12 @@ export const PAIRS = Object.freeze({
   XRPUSDT: { label: 'XRP', ticker: 'XRP', gecko: 'ripple' },
   ADAUSDT: { label: 'Cardano', ticker: 'ADA', gecko: 'cardano' },
   DOGEUSDT: { label: 'Dogecoin', ticker: 'DOGE', gecko: 'dogecoin' },
-  AVAXUSDT: { label: 'Avalanche', ticker: 'AVAX', gecko: 'avalanche-2' }
+  AVAXUSDT: { label: 'Avalanche', ticker: 'AVAX', gecko: 'avalanche-2' },
+  CRVTRY: { label: 'Curve DAO', ticker: 'CRV', gecko: 'curve-dao-token' },
+  BTCUSDC: { label: 'Bitcoin', ticker: 'BTC', gecko: 'bitcoin' },
+  ETHBTC: { label: 'Ethereum', ticker: 'ETH', gecko: 'ethereum' }
 });
-export const INTERVALS = Object.freeze({ '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000 });
+export const INTERVALS = Object.freeze({ '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000, '1w': 604_800_000 });
 
 export function parseCandles(rows, now = Date.now()) {
   if (!Array.isArray(rows)) throw new Error('Mum verisi alınamadı.');
@@ -84,7 +87,7 @@ const prev=a=>a[a.length-2];
 const round=(x,n=2)=>Number(x.toFixed(n));
 
 export function analyze(candles, interval, symbol) {
-  if(!INTERVALS[interval]||!PAIRS[symbol]||candles.length<100) throw new Error('Analiz için geçersiz veri.');
+  if(!INTERVALS[interval]||!/^[A-Z0-9]{3,20}$/.test(symbol)||candles.length<100) throw new Error('Analiz için geçersiz veri.');
   const close=candles.map(c=>c.close), volumes=candles.map(c=>c.volume), current=last(close);
   const e20=emaSeries(close,20),e50=emaSeries(close,50),e200=emaSeries(close,200);
   const rs=rsiSeries(close), mc=macdSeries(close), at=atrSeries(candles), ad=adxSeries(candles);

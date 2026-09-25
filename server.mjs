@@ -17,7 +17,8 @@ async function upstream(url,ttl){
   if(!response.ok)throw new Error(`Veri kaynağı hatası: ${response.status}`);
   const data=await response.json();cache.set(url,{data,exp:Date.now()+ttl});return data;
 }
-function validate(url){const symbol=url.searchParams.get('symbol'),interval=url.searchParams.get('interval');if(!PAIRS[symbol]||!INTERVALS[interval])throw new Error('Desteklenmeyen parite veya zaman aralığı.');return {symbol,interval};}
+function validSymbol(symbol){return typeof symbol==='string'&&/^[A-Z0-9]{3,20}$/.test(symbol);}
+function validate(url){const symbol=url.searchParams.get('symbol'),interval=url.searchParams.get('interval');if(!validSymbol(symbol)||!INTERVALS[interval])throw Object.assign(new Error('Desteklenmeyen parite veya zaman aralığı.'),{status:400});return {symbol,interval};}
 async function candles(symbol,interval){return upstream(`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=260`,45_000);}
 function rateLimit(req){
   // For a public deployment also set spending limits in the OpenAI dashboard.
@@ -31,7 +32,7 @@ function rateLimit(req){
 async function aiComment(req,res){
   if(!process.env.OPENAI_API_KEY)return send(res,503,{error:'Yapay zekâ özelliği henüz etkin değil.'});
   let raw='';for await(const part of req){raw+=part;if(raw.length>1024){req.destroy();return;}}
-  const params=JSON.parse(raw||'{}');if(!PAIRS[params.symbol]||!INTERVALS[params.interval])throw Object.assign(new Error('Desteklenmeyen parite.'),{status:400});
+  const params=JSON.parse(raw||'{}');if(!validSymbol(params.symbol)||!INTERVALS[params.interval])throw Object.assign(new Error('Desteklenmeyen parite.'),{status:400});
   rateLimit(req);
   const rows=await candles(params.symbol,params.interval),closed=parseCandles(rows);
   if(Date.now()-closed.at(-1).closeTime>INTERVALS[params.interval]*3)throw new Error('Piyasa verisi güncel değil.');
@@ -52,6 +53,21 @@ const server=http.createServer(async(req,res)=>{
   try{
     const url=new URL(req.url,'http://localhost');
     if(url.pathname==='/api/status'&&req.method==='GET')return send(res,200,{ai:!!process.env.OPENAI_API_KEY});
+    if(url.pathname==='/api/symbols'&&req.method==='GET'){
+      const q=(url.searchParams.get('q')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);
+      const info=await upstream('https://data-api.binance.vision/api/v3/exchangeInfo',3_600_000);
+      const symbols=(info.symbols||[]).filter(s=>s.status==='TRADING'&&['USDT','TRY','USDC','BTC','FDUSD'].includes(s.quoteAsset));
+      const results=symbols.filter(s=>!q||s.symbol.includes(q)||s.baseAsset.includes(q)).sort((a,b)=>{
+        const rank=x=>x.symbol===q?0:x.symbol.startsWith(q)?1:x.quoteAsset==='USDT'?2:x.quoteAsset==='TRY'?3:4;
+        return rank(a)-rank(b)||a.symbol.localeCompare(b.symbol);
+      }).slice(0,40).map(s=>({symbol:s.symbol,base:s.baseAsset,quote:s.quoteAsset}));
+      return send(res,200,{symbols:results});
+    }
+    if(url.pathname==='/api/ticker'&&req.method==='GET'){
+      const symbol=url.searchParams.get('symbol');if(!validSymbol(symbol))return send(res,400,{error:'Desteklenmeyen parite.'});
+      const data=await upstream(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`,15_000);
+      return send(res,200,{symbol:data.symbol,lastPrice:data.lastPrice,priceChangePercent:data.priceChangePercent,highPrice:data.highPrice,lowPrice:data.lowPrice,quoteVolume:data.quoteVolume,closeTime:data.closeTime});
+    }
     if(url.pathname==='/api/market'&&req.method==='GET'){const {symbol,interval}=validate(url);return send(res,200,{candles:await candles(symbol,interval)});}
     if(url.pathname==='/api/fundamentals'&&req.method==='GET'){
       const coin=url.searchParams.get('coin');if(!allowedCoins.has(coin))return send(res,400,{error:'Desteklenmeyen varlık.'});
