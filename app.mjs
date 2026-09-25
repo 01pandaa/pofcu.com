@@ -88,7 +88,8 @@ function drawPrice(){
   $('#chart-time').textContent=`${time(items[0].time)} — ${time(items.at(-1).closeTime)} TSİ`;
 }
 function drawOscillators(){
-  if(!state.candles.length)return;const closes=state.candles.map(x=>x.close),{start,end}=visibleRange();
+  if(!state.candles.length){for(const id of ['#rsi-chart','#macd-chart']){const {c,w,h}=setup($(id));c.clearRect(0,0,w,h);}$('#rsi-value').textContent='—';$('#macd-value').textContent='—';return;}
+  const closes=state.candles.map(x=>x.close),{start,end}=visibleRange();
   let {c,w,h}=setup($('#rsi-chart'));const rs=rsiSeries(closes),x=j=>9+(w-18)*(j-start)/Math.max(1,end-start-1),y=v=>9+(100-v)/100*(h-20);
   [30,70].forEach(v=>{c.setLineDash([3,4]);c.strokeStyle='#455667';c.beginPath();c.moveTo(8,y(v));c.lineTo(w-8,y(v));c.stroke();c.setLineDash([]);c.fillStyle='#778c92';c.font='9px monospace';c.fillText(String(v),w-23,y(v)-3);});pathLine(c,rs,j=>x(j+start),y,start,end,'#b393f2',1.6);
   const m=macdSeries(closes);({c,w,h}=setup($('#macd-chart')));const hist=m.histogram.slice(start,end).filter(Number.isFinite),range=Math.max(...hist.map(Math.abs),.0001)*1.2,center=h/2,scale=(h*.43)/range,step=(w-18)/Math.max(1,end-start);
