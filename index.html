@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081019">
+  <meta name="description" content="Pofçu ile kripto piyasasını veri zamanı, RSI, MACD, trend, hacim ve risk göstergeleriyle inceleyin. Şeffaf, açıklanabilir piyasa analizi.">
+  <title>Pofçu — Kripto piyasasını sakin kafayla oku</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <div class="topline"></div>
+  <header class="nav shell">
+    <a class="brand" href="#baslangic" aria-label="Pofçu ana sayfa"><span class="brandmark">P<span class="branddot">●</span></span><span>Pofçu<span class="brand-ext">.com</span></span></a>
+    <nav aria-label="Ana menü"><a href="#analiz">Analiz</a><a href="#metodoloji">Nasıl çalışır?</a></nav>
+    <span class="nav-tag"><span class="pulse"></span> CANLI PİYASA VERİSİ</span>
+  </header>
+  <main id="baslangic">
+    <section class="hero shell">
+      <div class="hero-copy"><div class="eyebrow"><span class="eyebrow-line"></span> POFCU MARKET INTELLIGENCE <span class="v">/ 01</span></div>
+        <h1>Piyasayı <em>hissetme.</em><br><span>Veriyi oku.</span></h1>
+        <p>Kripto varlıkları tek bir indikatörle değil; trend, momentum, hacim ve risk verilerini birlikte değerlendirerek incele.</p>
+        <a class="hero-link" href="#analiz">Analize başla <span aria-hidden="true">↗</span></a>
+      </div>
+      <div class="hero-panel" aria-hidden="true"><div class="orb orb-a"></div><div class="orb orb-b"></div><div class="scan"></div><div class="hero-graphic"><span>DATA / SIGNAL</span><strong>01<span>—</span>08</strong><small>CLARITY IN EVERY MOVE</small></div></div>
+    </section>
+
+    <section class="analysis shell" id="analiz" aria-labelledby="analysis-title">
+      <div class="section-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> ANALİZ MASASI <span class="v">/ 02</span></div><h2 id="analysis-title">Varlığını seç, <span>resmi gör.</span></h2></div><p>Analiz kapanmış mumlara dayanır. Her yenilemede güncel piyasa verileri çekilir.</p></div>
+      <div class="workspace">
+        <div class="controls"><label for="asset">KRİPTO VARLIK</label><div class="select-wrap"><select id="asset"><option value="BTCUSDT">BTC / USDT — Bitcoin</option><option value="ETHUSDT">ETH / USDT — Ethereum</option><option value="SOLUSDT">SOL / USDT — Solana</option><option value="BNBUSDT">BNB / USDT — BNB</option><option value="XRPUSDT">XRP / USDT — XRP</option><option value="ADAUSDT">ADA / USDT — Cardano</option><option value="DOGEUSDT">DOGE / USDT — Dogecoin</option><option value="AVAXUSDT">AVAX / USDT — Avalanche</option></select></div><div class="control-separator"></div><label for="interval">ZAMAN ARALIĞI</label><div class="intervals" role="group" aria-label="Zaman aralığı"><button class="selected" type="button" data-interval="1h" aria-pressed="true">1 SAAT</button><button type="button" data-interval="4h" aria-pressed="false">4 SAAT</button><button type="button" data-interval="1d" aria-pressed="false">1 GÜN</button></div><button id="run" class="run" type="button">Piyasayı analiz et <span aria-hidden="true">↗</span></button><div class="control-foot"><span class="pulse"></span> Binance spot verisi<br><span class="minor">USDT pariteleri · Otomatik işlem yapılmaz</span></div></div>
+        <div class="result" id="result" aria-live="polite"><div class="empty"><div class="empty-glyph">⌁</div><div class="eyebrow">VERİ SENİ BEKLİYOR</div><h3>Bir varlık seç ve<br>analizi başlat.</h3><p>Göstergeler, sinyal gerekçeleri ve risk notları burada görünecek.</p></div></div>
+      </div>
+      <div id="fundamentals" class="fundamentals hidden" aria-live="polite"></div>
+    </section>
+
+    <section class="method shell" id="metodoloji"><div class="section-heading"><div><div class="eyebrow"><span class="eyebrow-line"></span> METODOLOJİ <span class="v">/ 03</span></div><h2>Tek veriyle <span>karar verme.</span></h2></div></div><div class="method-grid"><article><span class="method-n">01 / TREND</span><h3>Yönü tanı</h3><p>EMA 20, 50 ve 200 ile fiyatın kısa ve uzun dönem eğilimini karşılaştır.</p></article><article><span class="method-n">02 / MOMENTUM</span><h3>İvmeyi ölç</h3><p>RSI ve MACD ile hareketin gücünü ve olası yorgunluk işaretlerini gör.</p></article><article><span class="method-n">03 / RİSK</span><h3>Oynaklığı izle</h3><p>ATR, ADX, Bollinger bantları ve hacmi birlikte yorumla.</p></article></div><div class="disclosure"><span>ℹ</span><p>Gösterilen alım ve satış sinyalleri yalnızca teknik göstergelerin kurallı yorumudur. Gelecekteki getiriyi öngörmez; yatırım tavsiyesi değildir. Makroekonomi, haberler, zincir üstü veriler ve proje finansalları bu teknik skora dahil değildir.</p></div></section>
+  </main>
+  <footer class="shell"><div class="footer-brand">Pofçu<span>●</span></div><p>Veriye bak. Riski bil. Kararı kendin ver.</p><span>© <span id="year"></span> POFÇU.COM</span></footer>
+</body>
+</html>
