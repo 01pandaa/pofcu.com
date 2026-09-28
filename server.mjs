@@ -3,23 +3,56 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PAIRS, INTERVALS, parseCandles, analyze } from './engine.mjs';
+import { scanSymbols, scanRow } from './scanner.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const port=Number(process.env.PORT)||3000;
-const cache=new Map(),ipUsage=new Map();
+const cache=new Map(),inflight=new Map(),ipUsage=new Map();
 const daily={date:'',count:0};
 const allowedCoins=new Set(Object.values(PAIRS).map(p=>p.gecko));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon'};
 function send(res,status,value){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(value));}
 async function upstream(url,ttl){
   const hit=cache.get(url);if(hit&&hit.exp>Date.now())return hit.data;
-  const response=await fetch(url,{signal:AbortSignal.timeout(10000),headers:{accept:'application/json'}});
-  if(!response.ok)throw new Error(`Veri kaynağı hatası: ${response.status}`);
-  const data=await response.json();cache.set(url,{data,exp:Date.now()+ttl});return data;
+  if(inflight.has(url))return inflight.get(url);
+  const pending=(async()=>{
+    const response=await fetch(url,{signal:AbortSignal.timeout(10000),headers:{accept:'application/json'}});
+    if(!response.ok)throw new Error(`Veri kaynağı hatası: ${response.status}`);
+    const data=await response.json();cache.set(url,{data,exp:Date.now()+ttl});return data;
+  })();
+  inflight.set(url,pending);
+  try{return await pending;}finally{inflight.delete(url);}
 }
 function validSymbol(symbol){return typeof symbol==='string'&&/^[A-Z0-9]{3,20}$/.test(symbol);}
 function validate(url){const symbol=url.searchParams.get('symbol'),interval=url.searchParams.get('interval');if(!validSymbol(symbol)||!INTERVALS[interval])throw Object.assign(new Error('Desteklenmeyen parite veya zaman aralığı.'),{status:400});return {symbol,interval};}
 async function candles(symbol,interval){return upstream(`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=260`,45_000);}
+async function scanner(url){
+  const scope=url.searchParams.get('scope')||'watch',interval=url.searchParams.get('interval')||'1h';
+  if(!INTERVALS[interval])throw Object.assign(new Error('Zaman aralığı geçersiz.'),{status:400});
+  const requested=url.searchParams.get('symbols')||'';
+  // Reject malformed inputs before issuing any requests to the data provider.
+  try{scanSymbols(scope,requested,new Set());}catch(e){throw Object.assign(e,{status:400});}
+  const info=await upstream('https://data-api.binance.vision/api/v3/exchangeInfo',3_600_000);
+  const active=new Set((info.symbols||[]).filter(s=>s.status==='TRADING'&&s.isSpotTradingAllowed!==false).map(s=>s.symbol));
+  const symbols=scanSymbols(scope,requested,active);
+  if(!symbols.length)return {scope,interval,rows:[],failed:[],checkedAt:Date.now()};
+  const rows=[],failed=[];
+  let cursor=0;
+  await Promise.all(Array.from({length:Math.min(4,symbols.length)},async()=>{
+    while(cursor<symbols.length){
+      const symbol=symbols[cursor++];
+      try{
+        const [klines,ticker]=await Promise.all([
+          candles(symbol,interval),
+          upstream(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`,15_000)
+        ]);
+        rows.push(scanRow(symbol,interval,klines,ticker));
+      }catch(_){failed.push(symbol);}
+    }
+  }));
+  rows.sort((a,b)=>symbols.indexOf(a.symbol)-symbols.indexOf(b.symbol));
+  return {scope,interval,rows,failed,checkedAt:Date.now()};
+}
 function rateLimit(req){
   // For a public deployment also set spending limits in the OpenAI dashboard.
   const ip=String(req.headers['x-forwarded-for']||req.socket.remoteAddress||'').split(',')[0].trim().slice(0,80),now=Date.now();
@@ -67,6 +100,15 @@ const server=http.createServer(async(req,res)=>{
       const symbol=url.searchParams.get('symbol');if(!validSymbol(symbol))return send(res,400,{error:'Desteklenmeyen parite.'});
       const data=await upstream(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`,15_000);
       return send(res,200,{symbol:data.symbol,lastPrice:data.lastPrice,priceChangePercent:data.priceChangePercent,highPrice:data.highPrice,lowPrice:data.lowPrice,quoteVolume:data.quoteVolume,closeTime:data.closeTime});
+    }
+    if(url.pathname==='/api/scanner'&&req.method==='GET'){
+      const scope=url.searchParams.get('scope')||'watch',interval=url.searchParams.get('interval')||'1h';
+      const key=`scanner:${scope}:${interval}:${scope==='watch'?(url.searchParams.get('symbols')||''):''}`,hit=cache.get(key);
+      if(hit&&hit.exp>Date.now())return send(res,200,hit.data);
+      let pending=inflight.get(key);
+      if(!pending){pending=scanner(url);inflight.set(key,pending);}
+      try{const data=await pending;cache.set(key,{data,exp:Date.now()+30_000});return send(res,200,data);}
+      finally{inflight.delete(key);}
     }
     if(url.pathname==='/api/market'&&req.method==='GET'){const {symbol,interval}=validate(url);return send(res,200,{candles:await candles(symbol,interval)});}
     if(url.pathname==='/api/fundamentals'&&req.method==='GET'){
