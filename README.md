@@ -1,10 +1,12 @@
 # Pofçu.com — kripto piyasa terminali
 
-Binance spot pariteleri için mum grafik, izleme listesi, parite arama, zaman aralığı, hacim, EMA ve Bollinger katmanları, RSI/MACD panelleri ve açıklanabilir teknik sinyal sunar. `?source=binance&symbol=CRVTRY&interval=1h` gibi URL'ler doğrudan ilgili pariteyi açar. Kullanılan son mum kapanmıştır; RSI(14), MACD(12/26/9), EMA(20/50/200), ADX(14), ATR(14), Bollinger(20,2) ve hacim oranı gösterilir. CoinGecko piyasa değeri/hacim/dolaşım bölümü eşleşen varlıklarda ayrı gösterilir; teknik skora karışmaz.
+Binance spot pariteleri için mum grafik, izleme listesi, parite arama, zaman aralığı, hacim, EMA ve Bollinger katmanları, RSI/MACD panelleri ve açıklanabilir teknik sinyal sunar. Yeni Piyasa tarayıcısı izleme listesini veya önceden seçilmiş 12 USDT/TRY parite grubunu aynı periyotta tarar; teknik puana, 24 saatlik değişime veya hacme göre sıralar ve sinyal filtresi sağlar. Satırdaki Grafik düğmesi ilgili pariteyi açar. Kapsam yalnızca ekranda belirtilen listedir, bütün Binance piyasası değildir. `?source=binance&symbol=CRVTRY&interval=1h` gibi URL'ler doğrudan ilgili pariteyi açar. Kullanılan son mum kapanmıştır; RSI(14), MACD(12/26/9), EMA(20/50/200), ADX(14), ATR(14), Bollinger(20,2) ve hacim oranı gösterilir. CoinGecko piyasa değeri/hacim/dolaşım bölümü eşleşen varlıklarda ayrı gösterilir; teknik skora karışmaz.
 
 ## Yerel çalıştırma
 
 Node.js 20+ ile `npm start` ve `http://localhost:3000`. Harici npm paketi yok. `npm test` gösterge hesapları ve sınır durumlarını doğrular. Sunucu Binance ve CoinGecko isteklerini önbelleğe alır. Ön yüz sunucu olmadan da çalışabilir; o durumda tarayıcıda public API erişimi gerekir ve bölgesel erişim veya API kotası engellerinde hata gösterir. İzleme listesi tarayıcının yerel depolamasında tutulur.
+
+Tarayıcı `/api/scanner` sunucu yoluna ihtiyaç duyar. Bir istekte en fazla 12 işlem gören spot parite, dört eşzamanlı çalışan görevle taranır. Mum ve fiyat sonuçları kısa süreli önbelleğe alınır. 24 saatlik değişim ve hacim Binance'in yuvarlanan 24 saatlik istatistiğidir; seçili periyottaki teknik puandan ayrı tutulur. Veri alınamayan pariteler eksik sayısı olarak gösterilir.
 
 ## İsteğe bağlı yapay zekâ yorumu
 
