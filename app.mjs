@@ -8,6 +8,8 @@ let savedWatch;try{savedWatch=JSON.parse(localStorage.getItem('pofcu-watchlist')
 const state={symbol:/^[A-Z0-9]{3,20}$/.test(initialSymbol)?initialSymbol:'BTCUSDT',interval:INTERVALS[params.get('interval')]?params.get('interval'):'1h',
   watch:Array.isArray(savedWatch)?[...new Set(savedWatch.filter(s=>/^[A-Z0-9]{3,20}$/.test(s)))].slice(0,18):defaultWatch,
   candles:[],analysis:null,ticker:null,tickers:{},showEMA:true,showBB:false,showVolume:true,viewCount:85,offset:0,hover:-1,pointer:null,drag:null,ai:false,request:0};
+state.mode='chart';
+state.scan={scope:'watch',interval:state.interval,filter:'all',sort:'score',rows:[],failed:[],request:0,checkedAt:null};
 if(!state.watch.includes(state.symbol))state.watch.unshift(state.symbol);
 const money=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:n>=100?2:n>=1?4:8}).format(n);
 const fmt=n=>Number.isFinite(Number(n))?money(Number(n)):'—';
@@ -117,6 +119,39 @@ async function refreshWatch(){if(document.hidden)return;const symbols=state.watc
 async function searchSymbols(query){const q=query.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);let results=[];try{const d=await getJSON(`/api/symbols?q=${q}`,10000);results=d.symbols||[];}catch(_){results=Object.keys(PAIRS).filter(s=>s.includes(q)).map(s=>({...pair(s),symbol:s}));}
   return results;
 }
+function renderScanner(){
+  const scan=state.scan,visible=scan.rows.filter(row=>scan.filter==='all'||(scan.filter==='buy'?row.score>=3:scan.filter==='sell'?row.score<=-3:Math.abs(row.score)<3));
+  visible.sort((a,b)=>scan.sort==='change'?(b.change24h??-Infinity)-(a.change24h??-Infinity):scan.sort==='volume'?(b.quoteVolume??-Infinity)-(a.quoteVolume??-Infinity):b.score-a.score||a.symbol.localeCompare(b.symbol));
+  const label=scan.scope==='watch'?'izleme listesinde':scan.scope==='try'?'TRY grubunda':'USDT grubunda';
+  $('#scanner-status').textContent=scan.checkedAt?`${scan.rows.length} parite ${label} tarandı · ${time(scan.checkedAt)} TSİ${scan.failed.length?` · ${scan.failed.length} parite için veri alınamadı`:''}`:'Taramaya hazırlanıyor…';
+  $('#scanner-rows').innerHTML=visible.length?visible.map(row=>{
+    const p=pair(row.symbol),kind=row.score>=3?'buy':row.score<=-3?'sell':'wait',tone=kind==='buy'?'positive':kind==='sell'?'negative':'neutral';
+    const vol=row.quoteVolume===null?'—':`${p.quote==='TRY'?'₺':p.quote==='BTC'?'₿':'$'}${new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(row.quoteVolume)}`;
+    return `<tr><td><strong>${esc(p.base)} / ${esc(p.quote)}</strong><small>${esc(PAIRS[row.symbol]?.label||'Binance Spot')}</small></td><td class="${row.change24h===null?'':row.change24h>=0?'positive':'negative'}">${row.change24h===null?'—':pct(row.change24h)}</td><td>${Number(row.rsi).toFixed(1)}</td><td class="${row.macdHistogram>=0?'positive':'negative'}">${row.macdHistogram>=0?'Pozitif':'Negatif'}</td><td><span class="scan-badge ${kind}">${esc(row.direction)}</span></td><td class="${tone}">${row.score>0?'+':''}${row.score} / 5</td><td>${esc(vol)}</td><td><button class="scan-open" type="button" data-scan-symbol="${esc(row.symbol)}" aria-label="${esc(p.base)} / ${esc(p.quote)} grafiğini aç">Grafik ↗</button></td></tr>`;
+  }).join(''):`<tr><td colspan="8" class="scanner-empty">${scan.rows.length?'Bu sinyale uyan parite yok.':'Bu grupta taranabilecek parite bulunamadı.'}</td></tr>`;
+}
+async function loadScanner(){
+  const scan=state.scan,req=++scan.request,scope=scan.scope,interval=scan.interval;
+  $('#scanner-status').textContent='Kapanmış mumlar ve göstergeler hesaplanıyor…';
+  $('#scanner-rows').innerHTML='<tr><td colspan="8" class="scanner-empty">Pariteler taranıyor…</td></tr>';
+  $('#scan-refresh').disabled=true;
+  const query=new URLSearchParams({scope,interval});
+  if(scope==='watch')query.set('symbols',state.watch.slice(0,12).join(','));
+  try{
+    const data=await getJSON(`/api/scanner?${query}`,35000);
+    if(req!==scan.request)return;
+    scan.rows=data.rows||[];scan.failed=data.failed||[];scan.checkedAt=data.checkedAt||Date.now();
+    renderScanner();
+  }catch(e){if(req!==scan.request)return;scan.rows=[];scan.checkedAt=null;$('#scanner-status').textContent='Tarama tamamlanamadı.';$('#scanner-rows').innerHTML=`<tr><td colspan="8" class="scanner-empty">${esc(e.message)} Lütfen yeniden dene.</td></tr>`;}
+  finally{if(req===scan.request)$('#scan-refresh').disabled=false;}
+}
+function setMode(mode){
+  state.mode=mode;
+  $('#chart-view').classList.toggle('hidden',mode!=='chart');$('#scanner-view').classList.toggle('hidden',mode!=='scanner');
+  [['#mode-chart','chart'],['#mode-scanner','scanner']].forEach(([selector,value])=>{const button=$(selector);button.classList.toggle('active',mode===value);button.setAttribute('aria-pressed',String(mode===value));});
+  document.body.classList.toggle('scanner-mode',mode==='scanner');
+  if(mode==='scanner')loadScanner();else if(state.candles.length)redraw();
+}
 let searchReq=0,searchTimer;
 async function showResults(value){const req=++searchReq;$('#symbol-results').innerHTML='<div class="no-results">Pariteler aranıyor…</div>';const rows=await searchSymbols(value);if(req!==searchReq)return;$('#symbol-results').innerHTML=rows.length?rows.map(x=>`<button type="button" class="symbol-result" data-symbol="${esc(x.symbol)}"><strong>${esc(x.base)} / ${esc(x.quote)}</strong><span>${esc(x.symbol)}</span></button>`).join(''):'<div class="no-results">Eşleşen spot parite bulunamadı.</div>';}
 function openDialog(){const d=$('#symbol-dialog');d.showModal();$('#symbol-input').value='';$('#symbol-input').focus();showResults('');}
@@ -126,8 +161,16 @@ $('#symbol-dialog').addEventListener('click',e=>{if(e.target===$('#symbol-dialog
 $('#symbol-input').addEventListener('input',e=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>showResults(e.target.value),180);});
 $('#symbol-results').addEventListener('click',e=>{const b=e.target.closest('[data-symbol]');if(b)selectSymbol(b.dataset.symbol);});
 $('#watch-items').addEventListener('click',e=>{const b=e.target.closest('[data-symbol]');if(b&&b.dataset.symbol!==state.symbol){state.symbol=b.dataset.symbol;loadMarket();}});
+$('#mode-chart').addEventListener('click',()=>{if(state.mode!=='chart')setMode('chart');});
+$('#mode-scanner').addEventListener('click',()=>{if(state.mode!=='scanner')setMode('scanner');});
+$$('[data-scan-scope]').forEach(b=>b.addEventListener('click',()=>{if(state.scan.scope===b.dataset.scanScope)return;state.scan.scope=b.dataset.scanScope;$$('[data-scan-scope]').forEach(x=>x.classList.toggle('active',x===b));loadScanner();}));
+$('#scan-interval').addEventListener('change',e=>{state.scan.interval=e.target.value;loadScanner();});
+$('#scan-filter').addEventListener('change',e=>{state.scan.filter=e.target.value;renderScanner();});
+$('#scan-sort').addEventListener('change',e=>{state.scan.sort=e.target.value;renderScanner();});
+$('#scan-refresh').addEventListener('click',loadScanner);
+$('#scanner-rows').addEventListener('click',e=>{const b=e.target.closest('[data-scan-symbol]');if(!b)return;state.symbol=b.dataset.scanSymbol;if(!state.watch.includes(state.symbol)){state.watch.unshift(state.symbol);state.watch=state.watch.slice(0,18);localStorage.setItem('pofcu-watchlist',JSON.stringify(state.watch));}setMode('chart');loadMarket();});
 $$('[data-interval]').forEach(b=>b.addEventListener('click',()=>{if(state.interval!==b.dataset.interval){state.interval=b.dataset.interval;loadMarket();}}));
-$('#refresh').addEventListener('click',loadMarket);
+$('#refresh').addEventListener('click',()=>state.mode==='scanner'?loadScanner():loadMarket());
 [['#toggle-ema','showEMA'],['#toggle-bb','showBB'],['#toggle-volume','showVolume']].forEach(([sel,key])=>$(sel).addEventListener('click',e=>{state[key]=!state[key];e.currentTarget.classList.toggle('on',state[key]);e.currentTarget.setAttribute('aria-pressed',String(state[key]));redraw();}));
 $('#reset-zoom').addEventListener('click',()=>{state.viewCount=85;state.offset=0;state.hover=-1;redraw();});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!$('#symbol-dialog').open&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openDialog();}});
