@@ -122,7 +122,7 @@ const server=http.createServer(async(req,res)=>{
     const path=resolve(root,'.'+decodeURIComponent(page));
     if(!path.startsWith(root)||!types[extname(path)])return send(res,404,{error:'Sayfa bulunamadı.'});
     const body=await readFile(path);
-    res.writeHead(200,{'content-type':types[extname(path)],'cache-control':'public, max-age=300','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'});
+    res.writeHead(200,{'content-type':types[extname(path)],'cache-control':page==='/index.html'?'no-cache':'public, max-age=300','x-content-type-options':'nosniff','referrer-policy':'strict-origin-when-cross-origin'});
     res.end(req.method==='HEAD'?undefined:body);
   }catch(e){send(res,e.status||((e.code==='ENOENT')?404:503),{error:e.status===400?e.message:'İstek şu anda tamamlanamadı. Lütfen tekrar deneyin.'});}
 });
