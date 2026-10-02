@@ -57,17 +57,30 @@ function renderAnalysis(){
   <div class="insight-section"><h3>TEKNİK GÖSTERGELER</h3><div class="insight-row"><span>RSI (14)</span><strong>${i.rsi.toFixed(1)}</strong></div><div class="insight-row"><span>MACD histogramı</span><strong class="${i.macdHistogram>=0?'positive':'negative'}">${i.macdHistogram.toFixed(4)}</strong></div><div class="insight-row"><span>EMA 20 / 50</span><strong>${quote}${fmt(i.ema20)} / ${quote}${fmt(i.ema50)}</strong></div><div class="insight-row"><span>ADX · trend gücü</span><strong>${i.adx.toFixed(1)}</strong></div><div class="insight-row"><span>Hacim / ortalama</span><strong>${i.volumeRatio===null?'—':i.volumeRatio.toFixed(2)+'×'}</strong></div><div class="insight-row"><span>ATR / fiyat</span><strong>${i.atrPercent.toFixed(2)}%</strong></div></div>
   <div class="insight-section"><h3>SİNYALİN GEREKÇELERİ</h3>${a.factors.map(f=>`<div class="factor"><span class="mark ${f.weight>0?'positive':f.weight<0?'negative':'neutral'}">${f.weight>0?'↑':f.weight<0?'↓':'–'}</span><strong>${esc(f.name)}</strong>${esc(f.detail)}</div>`).join('')}</div>
   <div class="insight-section"><h3>İZLENECEK SEVİYELER</h3><div class="insight-row"><span>Son 20 mum dip / tepe</span><strong>${quote}${fmt(i.support)} / ${quote}${fmt(i.resistance)}</strong></div><div class="insight-row"><span>Bollinger alt / üst</span><strong>${quote}${fmt(i.bollingerLower)} / ${quote}${fmt(i.bollingerUpper)}</strong></div></div>
-  ${a.notes.length?`<div class="risk-note">${a.notes.map(n=>`• ${esc(n)}`).join('<br>')}</div>`:''}<p class="source-note">Kaynak: Binance spot · ${time(a.asOf)} TSİ · Yalnızca kapanmış mumlar.</p><div id="fundamental-section"></div>`;
-  if(PAIRS[state.symbol]?.gecko)loadFundamentals(state.symbol,state.request);
+  ${a.notes.length?`<div class="risk-note">${a.notes.map(n=>`• ${esc(n)}`).join('<br>')}</div>`:''}<p class="source-note">Kaynak: Binance spot · ${time(a.asOf)} TSİ · Yalnızca kapanmış mumlar.</p>`;
 }
-async function loadFundamentals(symbol,req){
-  try{
-    const id=PAIRS[symbol].gecko;let data;
-    try{data=await getJSON(`/api/fundamentals?coin=${id}`,9000);}catch(_){data=await getJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}`,9000);}
-    if(req!==state.request||!data?.[0])return;
-    const c=data[0],el=$('#fundamental-section');if(!el)return;
-    el.innerHTML=`<div class="insight-section"><h3>PİYASA VERİLERİ <span class="overline">· COINGECKO</span></h3><div class="insight-row"><span>Piyasa değeri</span><strong>${c.market_cap?'$'+new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(c.market_cap):'—'}</strong></div><div class="insight-row"><span>24s hacim</span><strong>${c.total_volume?'$'+new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(c.total_volume):'—'}</strong></div><div class="insight-row"><span>Piyasa sırası</span><strong>${c.market_cap_rank?'#'+c.market_cap_rank:'—'}</strong></div><div class="factor">Bu veriler teknik sinyal puanına dahil değildir.</div></div>`;
-  }catch(_){}
+const compact=n=>n===null||n===undefined||!Number.isFinite(Number(n))?'—':new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(Number(n));
+const value=n=>n===null||n===undefined||!Number.isFinite(Number(n))?'—':Number(n).toFixed(2);
+const stamped=t=>t&&Number.isFinite(new Date(t).getTime())?time(new Date(t))+' TSİ':'zaman belirtilmedi';
+function renderOutlook(data){
+  const a=data.assessment,tech=data.technical,adv=tech.advanced,c=data.cmc,f=data.fear;
+  const tone=a.stance==='buy'?'positive':a.stance==='sell'?'negative':'neutral';
+  const row=(name,n,suffix='')=>`<div class="insight-row"><span>${name}</span><strong>${value(n)}${n===null||n===undefined?'':suffix}</strong></div>`;
+  const score=x=>`${x>0?'+':''}${x}/5`;
+  const times=[{interval:data.interval,score:tech.score,asOf:data.asOf},...data.comparisons];
+  const timeRows=times.map(x=>`<div class="outlook-period"><strong>${esc(x.interval)}</strong><span class="${x.score>0?'positive':x.score<0?'negative':'neutral'}">${score(x.score)}</span><small>${stamped(x.asOf)}</small></div>`).join('');
+  const supply=c?.maxSupply&&c.circulatingSupply!==null?Math.min(100,c.circulatingSupply/c.maxSupply*100):null;
+  const fearLabel=({'Extreme Fear':'Aşırı korku','Fear':'Korku','Neutral':'Nötr','Greed':'Açgözlülük','Extreme Greed':'Aşırı açgözlülük'})[f?.classification]||f?.classification||'';
+  $('#outlook-section').innerHTML=`<div class="outlook-head"><span class="overline">BİRLEŞİK PİYASA GÖRÜNÜMÜ</span><strong class="${tone}">${esc(a.direction)}</strong><p>${esc(a.summary)}</p><small>Geçmiş veriye dayalı koşullu değerlendirme; gelecek fiyat tahmini değildir.</small></div>
+  <div class="insight-section"><h3>ZAMAN ARALIĞI TEYİDİ</h3><div class="outlook-periods">${timeRows}</div><p class="outlook-caption">Puanlar −5 ile +5 arası gösterge dengesi; olasılık veya getiri ölçüsü değildir.</p></div>
+  <div class="insight-section"><h3>EK TEKNİK GÖSTERGELER</h3>${row('Stokastik %K / %D',adv.stochasticK)}<div class="outlook-secondary">%D ${value(adv.stochasticD)} · 14 mum, 3 ortalama</div>${row('MFI · para akışı',adv.mfi)}${row('CMF · hacim baskısı',adv.cmf)}${row('OBV · 10 mum baskısı',adv.obvPressure)}<div class="outlook-caption">${adv.bull} olumlu · ${adv.bear} olumsuz · ${a.confirmations.neutral} nötr ek teyit. OBV burada son 10 mumun imzalı hacim oranıdır; borsa net para girişini ölçmez.</div></div>
+  <div class="insight-section"><h3>PİYASA BAĞLAMI <span class="overline">· COINMARKETCAP</span></h3>${c?`<div class="outlook-asset">${esc(c.name)} (${esc(c.symbol)}) · #${c.rank??'—'}</div><div class="insight-row"><span>Piyasa değeri (USD)</span><strong>$${compact(c.marketCap)}</strong></div><div class="insight-row"><span>Küresel 24s hacim (USD)</span><strong>${c.volume24h===null?'—':'$'+compact(c.volume24h)}</strong></div><div class="insight-row"><span>Dolaşım / azami arz</span><strong>${supply===null?'—':value(supply)+'%'}</strong></div><div class="insight-row"><span>7g değişim</span><strong>${c.change7d===null?'—':pct(c.change7d)}</strong></div><p class="source-note">CoinMarketCap USD piyasa verisi · ${stamped(c.asOf)}. Binance parite fiyatı ile farklı kapsamlıdır.</p>`:`<p class="outlook-caption">${data.cmcCoverage==='unverified-symbol'?'Bu parite için doğrulanmış CoinMarketCap varlık eşleşmesi yok.':'CoinMarketCap verisi şu anda alınamadı.'}</p>`}
+  ${f?`<div class="insight-row"><span>Genel korku / açgözlülük</span><strong>${f.value}/100</strong></div><p class="source-note">${esc(fearLabel)} · ${stamped(f.asOf)} · tüm piyasa duyarlılığı; coin sinyali değildir.</p>`:''}</div>
+  ${a.risks.length?`<div class="risk-note">${a.risks.map(n=>`• ${esc(n)}`).join('<br>')}</div>`:''}`;
+}
+async function loadOutlook(symbol,interval,req){
+  try{const data=await getJSON(`/api/outlook?symbol=${symbol}&interval=${interval}`,20000);if(req===state.request)renderOutlook(data);}
+  catch(_){if(req===state.request)$('#outlook-section').innerHTML='<div class="outlook-loading">Çoklu periyot veya piyasa bağlamı şu anda alınamadı. Teknik analiz yukarıda görüntüleniyor.</div>';}
 }
 function setup(canvas){const dpr=window.devicePixelRatio||1,r=canvas.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);const c=canvas.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return {c,w,h};}
 function pathLine(c,values,toX,toY,start,end,color,width=1.5){c.beginPath();let begun=false;for(let j=start;j<end;j++){const v=values[j];if(v===null||!Number.isFinite(v)){begun=false;continue;}const x=toX(j-start),y=toY(v);if(!begun)c.moveTo(x,y);else c.lineTo(x,y);begun=true;}c.strokeStyle=color;c.lineWidth=width;c.stroke();}
@@ -105,14 +118,15 @@ function redraw(){drawPrice();drawOscillators();}
 async function loadMarket(){
   const req=++state.request,symbol=state.symbol,interval=state.interval;
   $('#chart-error').classList.add('hidden');$('#analysis-content').innerHTML='<div class="loading"><div class="loading-ring"></div><p>Göstergeler hesaplanıyor…</p></div>';
+  $('#outlook-section').innerHTML='<div class="outlook-loading">Çoklu periyot ve piyasa bağlamı hazırlanıyor…</div>';
   state.analysis=null;state.ticker=null;state.candles=[];renderHeader();renderWatch();updateURL();redraw();
   try{
     const [rows,t]=await Promise.all([market(symbol,interval),ticker(symbol).catch(()=>null)]);if(req!==state.request)return;
     const candles=parseCandles(rows);if(Date.now()-candles.at(-1).closeTime>INTERVALS[interval]*3)throw new Error('Son kapanan mum güncel değil. Eski veriyle sinyal oluşturulmadı.');
     state.candles=candles;state.analysis=analyze(candles,interval,symbol);state.ticker=t;if(t)state.tickers[symbol]=t;
     state.offset=0;state.viewCount=85;state.hover=-1;state.pointer=null;
-    renderHeader();renderWatch();renderAnalysis();redraw();
-  }catch(e){if(req!==state.request)return;state.candles=[];state.analysis=null;redraw();$('#analysis-content').innerHTML='<div class="loading">Analiz verisi alınamadı.</div>';$('#chart-error').innerHTML=`<strong>Grafik yüklenemedi</strong>${esc(e.message)}<br>Paritenin Binance spot piyasasında işlem gördüğünü kontrol et veya biraz sonra yenile.`;$('#chart-error').classList.remove('hidden');}
+    renderHeader();renderWatch();renderAnalysis();redraw();loadOutlook(symbol,interval,req);
+  }catch(e){if(req!==state.request)return;state.candles=[];state.analysis=null;redraw();$('#analysis-content').innerHTML='<div class="loading">Analiz verisi alınamadı.</div>';$('#outlook-section').innerHTML='';$('#chart-error').innerHTML=`<strong>Grafik yüklenemedi</strong>${esc(e.message)}<br>Paritenin Binance spot piyasasında işlem gördüğünü kontrol et veya biraz sonra yenile.`;$('#chart-error').classList.remove('hidden');}
 }
 async function refreshTicker(){if(!state.analysis||document.hidden)return;try{const symbol=state.symbol,t=await ticker(symbol);if(symbol!==state.symbol)return;state.ticker=t;state.tickers[symbol]=t;renderHeader();renderWatch();}catch(_){}}
 async function refreshWatch(){if(document.hidden)return;const symbols=state.watch.slice(0,12);await Promise.allSettled(symbols.map(async symbol=>{try{state.tickers[symbol]=await ticker(symbol);}catch(_){}}));renderWatch();}
