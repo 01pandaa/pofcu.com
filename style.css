@@ -38,3 +38,20 @@
 .scanner-note{color:#728a8e;line-height:1.65;font:10px 'DM Mono',monospace;margin:22px 27px 30px}
 @media(max-width:1050px){.scanner-controls{align-items:flex-start}.scan-segment{width:100%;margin-right:0}}
 @media(max-width:720px){.mode-switch{order:3;width:100%}.mode-switch button{flex:1}.scanner-mode .timeframes{display:none}.scanner-heading{padding:22px 16px;align-items:center}.scanner-heading h1{font-size:20px}.scanner-heading p{font-size:10px}.scanner-controls{padding:14px 12px;gap:10px}.scan-segment{overflow:auto}.scan-segment button{flex:1}.scanner-status{padding:13px}.scanner-table-wrap{padding:0 9px}.scanner-note{margin:17px 14px 25px}}
+
+/* Multi-period outlook and CoinMarketCap context */
+.outlook-panel{padding:0 20px 20px;border-top:1px solid var(--line)}
+.outlook-loading{color:#8ca29e;font-size:11px;line-height:1.6;padding:19px 0}
+.outlook-head{background:#182630;border:1px solid #3b4c51;border-radius:6px;padding:15px;margin:18px 0 4px}
+.outlook-head strong{display:block;font-size:17px;line-height:1.3;margin:7px 0}
+.outlook-head p{font:10px 'DM Mono',monospace;color:#b4c5bd;line-height:1.5;margin:0 0 9px}
+.outlook-head small,.outlook-caption{display:block;color:#82999c;font-size:10px;line-height:1.6}
+.outlook-periods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+.outlook-period{padding:9px 5px;background:#172631;border:1px solid #31424a;border-radius:4px;text-align:center;min-width:0}
+.outlook-period strong,.outlook-period span,.outlook-period small{display:block;font:10px 'DM Mono',monospace}
+.outlook-period strong{color:#d5e2d9}.outlook-period span{margin:6px 0}.outlook-period small{color:#728c92;font-size:8px;line-height:1.4}
+.outlook-secondary{color:#738d91;font:9px 'DM Mono',monospace;margin:-8px 0 12px;text-align:right}
+.outlook-asset{color:#d4e1da;font-size:11px;font-weight:700;margin-bottom:13px}
+.outlook-panel .risk-note{margin-bottom:0}
+@media(min-width:721px) and (max-width:1050px){.insights{grid-template-columns:minmax(0,1fr) 300px}.insights-head{grid-column:1/-1}#analysis-content{grid-column:1;grid-row:2/4}.outlook-panel{grid-column:2;grid-row:2}.ai-panel{grid-column:2;grid-row:3;margin:0 18px 18px}.insights-foot{grid-column:1/-1}}
+@media(max-width:720px){.outlook-panel{padding:0 16px 18px}}
