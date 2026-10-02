@@ -57,6 +57,6 @@ export function advancedStudies(candles){
     {name:'OBV (10)',value:obv>.1?1:obv<-.1?-1:0}
   ];
   return {stochasticK:round(k),stochasticD:round(d),mfi:round(moneyFlow),cmf:round(cashFlow,3),
-    obvPressure:round(obv,3),weightedPrice20:round(weightedPrice,5),confirmations,
+    obvPressure:round(obv,3),weightedPrice20:weightedPrice===null?null:Number(weightedPrice.toPrecision(9)),confirmations,
     bull:confirmations.filter(x=>x.value>0).length,bear:confirmations.filter(x=>x.value<0).length};
 }
