@@ -1,17 +1,20 @@
 import { INTERVALS, parseCandles, analyze } from './engine.mjs';
 
-// These are small, explicit universes. The exchange listing is checked at request time.
+// Explicit universes are checked against the current exchange listing at request time.
+export const MAX_SCAN=30;
+const popular=['BTC','ETH','SOL','BNB','XRP','DOGE','ADA','AVAX','LINK','DOT','LTC','TRX','CRV','SUI','UNI',
+  'SHIB','PEPE','BCH','NEAR','APT','OP','ARB','ATOM','XLM','HBAR','AAVE','INJ','RENDER','ONDO','FET'];
 export const SCAN_PRESETS = Object.freeze({
-  usdt: ['BTC','ETH','SOL','BNB','XRP','DOGE','ADA','AVAX','LINK','DOT','LTC','TRX'].map(base=>base+'USDT'),
-  try: ['BTC','ETH','SOL','BNB','XRP','DOGE','ADA','AVAX','LINK','DOT','CRV','LTC'].map(base=>base+'TRY')
+  usdt: popular.map(base=>base+'USDT'),
+  try: popular.map(base=>base+'TRY')
 });
 
 export function scanSymbols(scope, requested, active) {
   if (!['watch','usdt','try'].includes(scope)) throw new Error('Tarama grubu geçersiz.');
-  if (scope==='watch' && (typeof requested!=='string' || requested.length>250)) throw new Error('İzleme listesi geçersiz.');
+  if (scope==='watch' && (typeof requested!=='string' || requested.length>MAX_SCAN*21)) throw new Error('İzleme listesi geçersiz.');
   const candidates=scope==='watch' ? requested.split(',').map(x=>x.trim()) : SCAN_PRESETS[scope];
-  if (scope==='watch' && (candidates.length>12 || candidates.some(s=>!/^[A-Z0-9]{3,20}$/.test(s)))) throw new Error('En fazla 12 geçerli parite taranabilir.');
-  return [...new Set(candidates)].filter(s=>active.has(s)).slice(0,12);
+  if (scope==='watch' && (candidates.length>MAX_SCAN || candidates.some(s=>!/^[A-Z0-9]{3,20}$/.test(s)))) throw new Error(`En fazla ${MAX_SCAN} geçerli parite taranabilir.`);
+  return [...new Set(candidates)].filter(s=>active.has(s)).slice(0,MAX_SCAN);
 }
 
 export function scanRow(symbol, interval, candleRows, ticker, now=Date.now()) {
