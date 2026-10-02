@@ -1,5 +1,5 @@
 // Indicator calculations use only completed spot candles. No historical values are invented.
-import { advancedStudies } from './advanced.mjs';
+import { advancedStudies } from './advanced.mjs?v=20261002-priceprecision';
 export const PAIRS = Object.freeze({
   BTCUSDT: { label: 'Bitcoin', ticker: 'BTC', gecko: 'bitcoin' },
   ETHUSDT: { label: 'Ethereum', ticker: 'ETH', gecko: 'ethereum' },
@@ -94,6 +94,7 @@ export function adxSeries(candles,n=14) {
 const last=a=>a[a.length-1];
 const prev=a=>a[a.length-2];
 const round=(x,n=2)=>Number(x.toFixed(n));
+const precise=x=>Number(x.toPrecision(9));
 
 export function analyze(candles, interval, symbol) {
   if(!INTERVALS[interval]||!/^[A-Z0-9]{3,20}$/.test(symbol)||candles.length<100) throw new Error('Analiz için geçersiz veri.');
@@ -124,10 +125,10 @@ export function analyze(candles, interval, symbol) {
   return {
     symbol,interval,asOf:last(candles).closeTime,price:current,change:100*(current/close[close.length-2]-1),
     direction,score,bull,bear,factors,notes,advanced,
-    indicators:{rsi:round(rsi),macd:round(macd,5),macdSignal:round(signal,5),macdHistogram:round(histogram,5),
-      ema20:round(ema20,5),ema50:round(ema50,5),ema200:ema200===null?null:round(ema200,5),adx:round(adx),
-      atr:round(atr,5),atrPercent:round(atr/current*100),volumeRatio:ratio===null?null:round(ratio),
-      bollingerUpper:round(mean+2*sd,5),bollingerLower:round(mean-2*sd,5),support:low,resistance:high},
+    indicators:{rsi:round(rsi),macd:precise(macd),macdSignal:precise(signal),macdHistogram:precise(histogram),
+      ema20:precise(ema20),ema50:precise(ema50),ema200:ema200===null?null:precise(ema200),adx:round(adx),
+      atr:precise(atr),atrPercent:round(atr/current*100),volumeRatio:ratio===null?null:round(ratio),
+      bollingerUpper:precise(mean+2*sd),bollingerLower:precise(mean-2*sd),support:low,resistance:high},
     chart:candles.slice(-72).map(c=>({time:c.time,close:c.close}))
   };
 }
