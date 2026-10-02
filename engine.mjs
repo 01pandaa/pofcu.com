@@ -1,4 +1,5 @@
 // Indicator calculations use only completed spot candles. No historical values are invented.
+import { advancedStudies } from './advanced.mjs';
 export const PAIRS = Object.freeze({
   BTCUSDT: { label: 'Bitcoin', ticker: 'BTC', gecko: 'bitcoin' },
   ETHUSDT: { label: 'Ethereum', ticker: 'ETH', gecko: 'ethereum' },
@@ -96,6 +97,7 @@ export function analyze(candles, interval, symbol) {
   const high=Math.max(...candles.slice(-20).map(c=>c.high)), low=Math.min(...candles.slice(-20).map(c=>c.low));
   const atr=last(at), rsi=last(rs), macd=last(mc.line), signal=last(mc.signal), histogram=last(mc.histogram);
   const adx=last(ad),ema20=last(e20),ema50=last(e50),ema200=last(e200);
+  const advanced=advancedStudies(candles);
   const factors=[];
   const add=(name,weight,detail)=>factors.push({name,weight,detail});
   add('EMA 20 / 50',ema20>ema50?1:-1,ema20>ema50?'Kısa ortalama uzun ortalamanın üstünde.':'Kısa ortalama uzun ortalamanın altında.');
@@ -113,7 +115,7 @@ export function analyze(candles, interval, symbol) {
   if(Math.abs(score)<3) notes.push('Göstergeler aynı yöne işaret etmiyor; net bir teknik sinyal yok.');
   return {
     symbol,interval,asOf:last(candles).closeTime,price:current,change:100*(current/close[close.length-2]-1),
-    direction,score,bull,bear,factors,notes,
+    direction,score,bull,bear,factors,notes,advanced,
     indicators:{rsi:round(rsi),macd:round(macd,5),macdSignal:round(signal,5),macdHistogram:round(histogram,5),
       ema20:round(ema20,5),ema50:round(ema50,5),ema200:ema200===null?null:round(ema200,5),adx:round(adx),
       atr:round(atr,5),atrPercent:round(atr/current*100),volumeRatio:ratio===null?null:round(ratio),
