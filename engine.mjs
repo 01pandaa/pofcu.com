@@ -13,6 +13,14 @@ export const PAIRS = Object.freeze({
   BTCUSDC: { label: 'Bitcoin', ticker: 'BTC', gecko: 'bitcoin' },
   ETHBTC: { label: 'Ethereum', ticker: 'ETH', gecko: 'ethereum' }
 });
+export const ASSET_NAMES=Object.freeze({BTC:'Bitcoin',ETH:'Ethereum',SOL:'Solana',BNB:'BNB',XRP:'XRP',
+  ADA:'Cardano',DOGE:'Dogecoin',AVAX:'Avalanche',LINK:'Chainlink',DOT:'Polkadot',CRV:'Curve DAO',
+  LTC:'Litecoin',TRX:'TRON',SUI:'Sui',UNI:'Uniswap',SHIB:'Shiba Inu',PEPE:'Pepe',BCH:'Bitcoin Cash',
+  NEAR:'NEAR Protocol',APT:'Aptos',OP:'Optimism',ARB:'Arbitrum',ATOM:'Cosmos',FIL:'Filecoin',
+  ETC:'Ethereum Classic',XLM:'Stellar',HBAR:'Hedera',AAVE:'Aave',INJ:'Injective',SEI:'Sei',
+  RENDER:'Render',WIF:'dogwifhat',BONK:'Bonk',POL:'Polygon',ALGO:'Algorand',SAND:'The Sandbox',
+  GRT:'The Graph',ENA:'Ethena',JUP:'Jupiter',FET:'Artificial Superintelligence Alliance',
+  WLD:'Worldcoin',TAO:'Bittensor',ONDO:'Ondo',PAXG:'PAX Gold',TRUMP:'OFFICIAL TRUMP'});
 export const INTERVALS = Object.freeze({ '15m': 900_000, '1h': 3_600_000, '4h': 14_400_000, '1d': 86_400_000, '1w': 604_800_000 });
 
 export function parseCandles(rows, now = Date.now()) {
