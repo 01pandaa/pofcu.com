@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {stochastic,mfi,cmf,obvPressure,advancedStudies} from './advanced.mjs';
-import {cmcId,contextIntervals,normalizeCmc,normalizeFear,assessOutlook} from './outlook.mjs';
+import {CMC_IDS,cmcId,contextIntervals,normalizeCmc,normalizeFear,assessOutlook} from './outlook.mjs';
 
 const candles=Array.from({length:35},(_,i)=>({high:102+i,low:98+i,close:101+i,volume:100+i}));
 
@@ -23,6 +23,11 @@ test('stokastik ve para akışı kapalı mumlarla hesaplanır',()=>{
 test('CMC ID eşleşmesi sembol çakışmasını önler',()=>{
   assert.equal(cmcId('CRVTRY'),6538);
   assert.equal(cmcId('BTCUSDT'),1);
+  assert.equal(cmcId('PEPEUSDT'),24478);
+  assert.equal(cmcId('ARBUSDT'),11841);
+  assert.equal(cmcId('SHIBTRY'),5994);
+  assert.equal(Object.keys(CMC_IDS).length,45);
+  assert.equal(new Set(Object.values(CMC_IDS)).size,45);
   assert.equal(cmcId('UNKNOWNUSDT'),null);
   assert.deepEqual(contextIntervals('1h'),['4h','1d']);
   const payload={status:{error_code:'0'},data:[
