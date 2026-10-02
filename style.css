@@ -60,3 +60,6 @@
 .outlook-panel .outlook-caption{margin:10px 0}
 .outlook-panel .insight-row{margin-bottom:14px}
 @media(max-width:720px){.workspace .outlook-panel{display:block;padding:16px}.outlook-panel .outlook-head{margin-bottom:4px}}
+
+/* Keep a larger watchlist readable without making the page excessively tall. */
+@media(min-width:721px){.watchlist{height:calc(100vh - 65px);position:sticky;top:0;align-self:start}}
