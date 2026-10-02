@@ -1,12 +1,14 @@
-import {PAIRS, INTERVALS, parseCandles, analyze, emaSeries, rsiSeries, macdSeries} from './engine.mjs';
+import {PAIRS, ASSET_NAMES, INTERVALS, parseCandles, analyze, emaSeries, rsiSeries, macdSeries} from './engine.mjs?v=20261002-morecoins';
+import {SCAN_PRESETS} from './scanner.mjs?v=20261002-morecoins';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const params=new URLSearchParams(location.search);
 const initialSymbol=(params.get('symbol')||'BTCUSDT').toUpperCase();
-const defaultWatch=['BTCUSDT','ETHUSDT','SOLUSDT','CRVTRY','BNBUSDT','XRPUSDT'];
+const MAX_WATCH=30;
+const defaultWatch=['BTCUSDT','ETHUSDT','SOLUSDT','CRVTRY','BNBUSDT','XRPUSDT','SUIUSDT','LINKUSDT','SHIBTRY','PEPEUSDT','AAVEUSDT','NEARUSDT'];
 let savedWatch;try{savedWatch=JSON.parse(localStorage.getItem('pofcu-watchlist')||'null');}catch(_){}
 const state={symbol:/^[A-Z0-9]{3,20}$/.test(initialSymbol)?initialSymbol:'BTCUSDT',interval:INTERVALS[params.get('interval')]?params.get('interval'):'1h',
-  watch:Array.isArray(savedWatch)?[...new Set(savedWatch.filter(s=>/^[A-Z0-9]{3,20}$/.test(s)))].slice(0,18):defaultWatch,
+  watch:Array.isArray(savedWatch)?[...new Set(savedWatch.filter(s=>/^[A-Z0-9]{3,20}$/.test(s)))].slice(0,MAX_WATCH):defaultWatch,
   candles:[],analysis:null,ticker:null,tickers:{},showEMA:true,showBB:false,showVolume:true,viewCount:85,offset:0,hover:-1,pointer:null,drag:null,ai:false,request:0};
 state.mode='chart';
 state.scan={scope:'watch',interval:state.interval,filter:'all',sort:'score',rows:[],failed:[],request:0,checkedAt:null};
@@ -18,7 +20,8 @@ const time=n=>new Intl.DateTimeFormat('tr-TR',{dateStyle:'short',timeStyle:'shor
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function pair(symbol){
   const quote=['FDUSD','USDT','USDC','TRY','BTC'].find(q=>symbol.endsWith(q))||'';
-  return {base:quote?symbol.slice(0,-quote.length):symbol,quote:quote||'—',label:PAIRS[symbol]?.label||symbol};
+  const base=quote?symbol.slice(0,-quote.length):symbol;
+  return {base,quote:quote||'—',label:PAIRS[symbol]?.label||ASSET_NAMES[base]||base};
 }
 function currency(){return pair(state.symbol).quote==='TRY'?'₺':pair(state.symbol).quote==='BTC'?'₿':'$';}
 async function getJSON(url,timeout=12000){const res=await fetch(url,{signal:AbortSignal.timeout(timeout),headers:{accept:'application/json'}});if(!res.ok)throw new Error(`Veri sağlayıcısı ${res.status} yanıtı verdi.`);return res.json();}
@@ -34,7 +37,7 @@ function updateURL(){const u=new URL(location.href);u.searchParams.set('source',
 function renderWatch(){
   $('#watch-items').innerHTML=state.watch.map(symbol=>{
     const p=pair(symbol),q=state.tickers[symbol],price=q?fmt(q.lastPrice):'—',change=q?Number(q.priceChangePercent):null;
-    return `<button class="watch-item ${symbol===state.symbol?'active':''}" type="button" data-symbol="${esc(symbol)}"><span><strong>${esc(p.base)} / ${esc(p.quote)}</strong><small>${esc(PAIRS[symbol]?.label||'Binance Spot')}</small></span><span class="watch-price">${price}<em class="${change===null?'':change>=0?'positive':'negative'}">${change===null?'—':pct(change)}</em></span></button>`;
+    return `<button class="watch-item ${symbol===state.symbol?'active':''}" type="button" data-symbol="${esc(symbol)}"><span><strong>${esc(p.base)} / ${esc(p.quote)}</strong><small>${esc(p.label)}</small></span><span class="watch-price">${price}<em class="${change===null?'':change>=0?'positive':'negative'}">${change===null?'—':pct(change)}</em></span></button>`;
   }).join('');
 }
 function renderHeader(){
@@ -129,8 +132,9 @@ async function loadMarket(){
   }catch(e){if(req!==state.request)return;state.candles=[];state.analysis=null;redraw();$('#analysis-content').innerHTML='<div class="loading">Analiz verisi alınamadı.</div>';$('#outlook-section').innerHTML='';$('#chart-error').innerHTML=`<strong>Grafik yüklenemedi</strong>${esc(e.message)}<br>Paritenin Binance spot piyasasında işlem gördüğünü kontrol et veya biraz sonra yenile.`;$('#chart-error').classList.remove('hidden');}
 }
 async function refreshTicker(){if(!state.analysis||document.hidden)return;try{const symbol=state.symbol,t=await ticker(symbol);if(symbol!==state.symbol)return;state.ticker=t;state.tickers[symbol]=t;renderHeader();renderWatch();}catch(_){}}
-async function refreshWatch(){if(document.hidden)return;const symbols=state.watch.slice(0,12);await Promise.allSettled(symbols.map(async symbol=>{try{state.tickers[symbol]=await ticker(symbol);}catch(_){}}));renderWatch();}
-async function searchSymbols(query){const q=query.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);let results=[];try{const d=await getJSON(`/api/symbols?q=${q}`,10000);results=d.symbols||[];}catch(_){results=Object.keys(PAIRS).filter(s=>s.includes(q)).map(s=>({...pair(s),symbol:s}));}
+async function refreshWatch(){if(document.hidden)return;const symbols=state.watch.slice(0,MAX_WATCH);let cursor=0;
+  await Promise.all(Array.from({length:Math.min(6,symbols.length)},async()=>{while(cursor<symbols.length){const symbol=symbols[cursor++];try{state.tickers[symbol]=await ticker(symbol);renderWatch();}catch(_){}}}));}
+async function searchSymbols(query){const q=query.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);let results=[];try{const d=await getJSON(`/api/symbols?q=${q}`,27000);results=d.symbols||[];}catch(_){results=[...new Set([...Object.keys(PAIRS),...SCAN_PRESETS.usdt,...SCAN_PRESETS.try])].filter(s=>s.includes(q)).slice(0,40).map(s=>({...pair(s),symbol:s}));}
   return results;
 }
 function renderScanner(){
@@ -141,7 +145,7 @@ function renderScanner(){
   $('#scanner-rows').innerHTML=visible.length?visible.map(row=>{
     const p=pair(row.symbol),kind=row.score>=3?'buy':row.score<=-3?'sell':'wait',tone=kind==='buy'?'positive':kind==='sell'?'negative':'neutral';
     const vol=row.quoteVolume===null?'—':`${p.quote==='TRY'?'₺':p.quote==='BTC'?'₿':'$'}${new Intl.NumberFormat('tr-TR',{notation:'compact',maximumFractionDigits:1}).format(row.quoteVolume)}`;
-    return `<tr><td><strong>${esc(p.base)} / ${esc(p.quote)}</strong><small>${esc(PAIRS[row.symbol]?.label||'Binance Spot')}</small></td><td class="${row.change24h===null?'':row.change24h>=0?'positive':'negative'}">${row.change24h===null?'—':pct(row.change24h)}</td><td>${Number(row.rsi).toFixed(1)}</td><td class="${row.macdHistogram>=0?'positive':'negative'}">${row.macdHistogram>=0?'Pozitif':'Negatif'}</td><td><span class="scan-badge ${kind}">${esc(row.direction)}</span></td><td class="${tone}">${row.score>0?'+':''}${row.score} / 5</td><td>${esc(vol)}</td><td><button class="scan-open" type="button" data-scan-symbol="${esc(row.symbol)}" aria-label="${esc(p.base)} / ${esc(p.quote)} grafiğini aç">Grafik ↗</button></td></tr>`;
+    return `<tr><td><strong>${esc(p.base)} / ${esc(p.quote)}</strong><small>${esc(p.label)}</small></td><td class="${row.change24h===null?'':row.change24h>=0?'positive':'negative'}">${row.change24h===null?'—':pct(row.change24h)}</td><td>${Number(row.rsi).toFixed(1)}</td><td class="${row.macdHistogram>=0?'positive':'negative'}">${row.macdHistogram>=0?'Pozitif':'Negatif'}</td><td><span class="scan-badge ${kind}">${esc(row.direction)}</span></td><td class="${tone}">${row.score>0?'+':''}${row.score} / 5</td><td>${esc(vol)}</td><td><button class="scan-open" type="button" data-scan-symbol="${esc(row.symbol)}" aria-label="${esc(p.base)} / ${esc(p.quote)} grafiğini aç">Grafik ↗</button></td></tr>`;
   }).join(''):`<tr><td colspan="8" class="scanner-empty">${scan.rows.length?'Bu sinyale uyan parite yok.':'Bu grupta taranabilecek parite bulunamadı.'}</td></tr>`;
 }
 async function loadScanner(){
@@ -150,9 +154,9 @@ async function loadScanner(){
   $('#scanner-rows').innerHTML='<tr><td colspan="8" class="scanner-empty">Pariteler taranıyor…</td></tr>';
   $('#scan-refresh').disabled=true;
   const query=new URLSearchParams({scope,interval});
-  if(scope==='watch')query.set('symbols',state.watch.slice(0,12).join(','));
+  if(scope==='watch')query.set('symbols',state.watch.slice(0,MAX_WATCH).join(','));
   try{
-    const data=await getJSON(`/api/scanner?${query}`,35000);
+    const data=await getJSON(`/api/scanner?${query}`,90000);
     if(req!==scan.request)return;
     scan.rows=data.rows||[];scan.failed=data.failed||[];scan.checkedAt=data.checkedAt||Date.now();
     renderScanner();
@@ -169,7 +173,7 @@ function setMode(mode){
 let searchReq=0,searchTimer;
 async function showResults(value){const req=++searchReq;$('#symbol-results').innerHTML='<div class="no-results">Pariteler aranıyor…</div>';const rows=await searchSymbols(value);if(req!==searchReq)return;$('#symbol-results').innerHTML=rows.length?rows.map(x=>`<button type="button" class="symbol-result" data-symbol="${esc(x.symbol)}"><strong>${esc(x.base)} / ${esc(x.quote)}</strong><span>${esc(x.symbol)}</span></button>`).join(''):'<div class="no-results">Eşleşen spot parite bulunamadı.</div>';}
 function openDialog(){const d=$('#symbol-dialog');d.showModal();$('#symbol-input').value='';$('#symbol-input').focus();showResults('');}
-function selectSymbol(symbol){if(!/^[A-Z0-9]{3,20}$/.test(symbol))return;state.symbol=symbol;if(!state.watch.includes(symbol)){state.watch.unshift(symbol);state.watch=state.watch.slice(0,18);localStorage.setItem('pofcu-watchlist',JSON.stringify(state.watch));}$('#symbol-dialog').close();loadMarket();}
+function selectSymbol(symbol){if(!/^[A-Z0-9]{3,20}$/.test(symbol))return;state.symbol=symbol;if(!state.watch.includes(symbol)){state.watch.unshift(symbol);state.watch=state.watch.slice(0,MAX_WATCH);localStorage.setItem('pofcu-watchlist',JSON.stringify(state.watch));}$('#symbol-dialog').close();loadMarket();}
 $('#pair-picker').addEventListener('click',openDialog);$('#watch-search').addEventListener('click',openDialog);$('#watch-add').addEventListener('click',openDialog);$('#dialog-close').addEventListener('click',()=>$('#symbol-dialog').close());
 $('#symbol-dialog').addEventListener('click',e=>{if(e.target===$('#symbol-dialog'))$('#symbol-dialog').close();});
 $('#symbol-input').addEventListener('input',e=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>showResults(e.target.value),180);});
@@ -182,7 +186,7 @@ $('#scan-interval').addEventListener('change',e=>{state.scan.interval=e.target.v
 $('#scan-filter').addEventListener('change',e=>{state.scan.filter=e.target.value;renderScanner();});
 $('#scan-sort').addEventListener('change',e=>{state.scan.sort=e.target.value;renderScanner();});
 $('#scan-refresh').addEventListener('click',loadScanner);
-$('#scanner-rows').addEventListener('click',e=>{const b=e.target.closest('[data-scan-symbol]');if(!b)return;state.symbol=b.dataset.scanSymbol;if(!state.watch.includes(state.symbol)){state.watch.unshift(state.symbol);state.watch=state.watch.slice(0,18);localStorage.setItem('pofcu-watchlist',JSON.stringify(state.watch));}setMode('chart');loadMarket();});
+$('#scanner-rows').addEventListener('click',e=>{const b=e.target.closest('[data-scan-symbol]');if(!b)return;state.symbol=b.dataset.scanSymbol;if(!state.watch.includes(state.symbol)){state.watch.unshift(state.symbol);state.watch=state.watch.slice(0,MAX_WATCH);localStorage.setItem('pofcu-watchlist',JSON.stringify(state.watch));}setMode('chart');loadMarket();});
 $$('[data-interval]').forEach(b=>b.addEventListener('click',()=>{if(state.interval!==b.dataset.interval){state.interval=b.dataset.interval;loadMarket();}}));
 $('#refresh').addEventListener('click',()=>state.mode==='scanner'?loadScanner():loadMarket());
 [['#toggle-ema','showEMA'],['#toggle-bb','showBB'],['#toggle-volume','showVolume']].forEach(([sel,key])=>$(sel).addEventListener('click',e=>{state[key]=!state[key];e.currentTarget.classList.toggle('on',state[key]);e.currentTarget.setAttribute('aria-pressed',String(state[key]));redraw();}));
