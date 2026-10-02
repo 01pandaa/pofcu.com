@@ -39,3 +39,13 @@ test('TRY paritesi ve 15 dakikalık zaman aralığı da analiz edilir',()=>{
   assert.equal(result.interval,'15m');
   assert.ok(Number.isFinite(result.indicators.rsi));
 });
+test('küçük fiyatlı coin göstergeleri sıfıra yuvarlanmaz',()=>{
+  const prices=Array.from({length:260},(_,i)=>(400+i*.1+Math.sin(i*.25)*8)*1e-8);
+  const result=analyze(candles(prices),'1h','PEPEUSDT');
+  assert.ok(result.indicators.ema20>0);
+  assert.ok(result.indicators.ema50>0);
+  assert.ok(result.indicators.bollingerLower>0);
+  assert.ok(result.indicators.atr>0);
+  assert.notEqual(result.indicators.macdHistogram,0);
+  assert.ok(result.advanced.weightedPrice20>0);
+});
