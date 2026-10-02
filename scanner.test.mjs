@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { scanSymbols, scanRow } from './scanner.mjs';
+import { scanSymbols, scanRow, SCAN_PRESETS, MAX_SCAN } from './scanner.mjs';
 
 const active=new Set(['BTCUSDT','ETHUSDT','CRVTRY']);
 test('tarama grubu işlem gören paritelerle sınırlanır ve yinelenenler ayrılır',()=>{
   assert.deepEqual(scanSymbols('watch','BTCUSDT,ETHUSDT,BTCUSDT,CRVTRY',active),['BTCUSDT','ETHUSDT','CRVTRY']);
   assert.deepEqual(scanSymbols('try','',active),['CRVTRY']);
-  assert.throws(()=>scanSymbols('watch','BTCUSDT,'.repeat(13),active));
+  assert.equal(SCAN_PRESETS.usdt.length,30);
+  assert.equal(SCAN_PRESETS.try.length,30);
+  assert.equal(scanSymbols('watch',SCAN_PRESETS.usdt.join(','),new Set(SCAN_PRESETS.usdt)).length,MAX_SCAN);
+  assert.throws(()=>scanSymbols('watch',Array(MAX_SCAN+1).fill('BTCUSDT').join(','),active));
   assert.throws(()=>scanSymbols('watch','BTCUSDT,../secret',active));
 });
 
