@@ -1,4 +1,4 @@
-import {PAIRS, ASSET_NAMES, INTERVALS, parseCandles, analyze, emaSeries, rsiSeries, macdSeries} from './engine.mjs?v=20261002-morecoins';
+import {PAIRS, ASSET_NAMES, INTERVALS, parseCandles, analyze, emaSeries, rsiSeries, macdSeries} from './engine.mjs?v=20261002-priceprecision';
 import {SCAN_PRESETS} from './scanner.mjs?v=20261002-morecoins';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -13,8 +13,11 @@ const state={symbol:/^[A-Z0-9]{3,20}$/.test(initialSymbol)?initialSymbol:'BTCUSD
 state.mode='chart';
 state.scan={scope:'watch',interval:state.interval,filter:'all',sort:'score',rows:[],failed:[],request:0,checkedAt:null};
 if(!state.watch.includes(state.symbol))state.watch.unshift(state.symbol);
-const money=n=>new Intl.NumberFormat('en-US',{maximumFractionDigits:n>=100?2:n>=1?4:8}).format(n);
-const fmt=n=>Number.isFinite(Number(n))?money(Number(n)):'—';
+const money=n=>{const a=Math.abs(n);if(a>0&&a<1e-12)return n.toExponential(4);
+  const digits=a>=100?2:a>=1?4:a===0?2:Math.min(16,Math.max(8,Math.ceil(-Math.log10(a))+4));
+  return new Intl.NumberFormat('en-US',{maximumFractionDigits:digits}).format(n);};
+const fmt=n=>n===null||n===undefined||!Number.isFinite(Number(n))?'—':money(Number(n));
+const oscillator=n=>!Number.isFinite(n)?'—':Math.abs(n)>=.0001?n.toFixed(4):n===0?'0':Math.abs(n)<1e-12?n.toExponential(3):n.toFixed(Math.min(16,Math.ceil(-Math.log10(Math.abs(n)))+4)).replace(/0+$/,'').replace(/\.$/,'');
 const pct=n=>`${n>=0?'+':''}${Number(n).toFixed(2)}%`;
 const time=n=>new Intl.DateTimeFormat('tr-TR',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Istanbul'}).format(n);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,7 +60,7 @@ function renderAnalysis(){
   const color=kind==='buy'?'positive':kind==='sell'?'negative':'neutral',ratio=Math.round((a.score+5)/10*100),quote=currency();
   $('#analysis-content').innerHTML=`<div class="signal-card ${kind==='buy'?'':kind}"><span class="overline">${esc(state.interval)} · TEKNİK SİNYAL</span><strong class="${color}">${esc(a.direction)}</strong><small>${a.bull} olumlu · ${a.bear} olumsuz · ${a.factors.filter(f=>f.weight===0).length} nötr</small></div>
   <div class="confidence"><div class="confidence-head"><span>GÖSTERGE DENGESİ</span><span class="${color}">${a.score>0?'+':''}${a.score} / 5</span></div><div class="confidence-bar"><i class="${kind==='buy'?'':kind}" style="width:${ratio}%"></i></div></div>
-  <div class="insight-section"><h3>TEKNİK GÖSTERGELER</h3><div class="insight-row"><span>RSI (14)</span><strong>${i.rsi.toFixed(1)}</strong></div><div class="insight-row"><span>MACD histogramı</span><strong class="${i.macdHistogram>=0?'positive':'negative'}">${i.macdHistogram.toFixed(4)}</strong></div><div class="insight-row"><span>EMA 20 / 50</span><strong>${quote}${fmt(i.ema20)} / ${quote}${fmt(i.ema50)}</strong></div><div class="insight-row"><span>ADX · trend gücü</span><strong>${i.adx.toFixed(1)}</strong></div><div class="insight-row"><span>Hacim / ortalama</span><strong>${i.volumeRatio===null?'—':i.volumeRatio.toFixed(2)+'×'}</strong></div><div class="insight-row"><span>ATR / fiyat</span><strong>${i.atrPercent.toFixed(2)}%</strong></div></div>
+  <div class="insight-section"><h3>TEKNİK GÖSTERGELER</h3><div class="insight-row"><span>RSI (14)</span><strong>${i.rsi.toFixed(1)}</strong></div><div class="insight-row"><span>MACD histogramı</span><strong class="${i.macdHistogram>=0?'positive':'negative'}">${oscillator(i.macdHistogram)}</strong></div><div class="insight-row"><span>EMA 20 / 50</span><strong>${quote}${fmt(i.ema20)} / ${quote}${fmt(i.ema50)}</strong></div><div class="insight-row"><span>ADX · trend gücü</span><strong>${i.adx.toFixed(1)}</strong></div><div class="insight-row"><span>Hacim / ortalama</span><strong>${i.volumeRatio===null?'—':i.volumeRatio.toFixed(2)+'×'}</strong></div><div class="insight-row"><span>ATR / fiyat</span><strong>${i.atrPercent.toFixed(2)}%</strong></div></div>
   <div class="insight-section"><h3>SİNYALİN GEREKÇELERİ</h3>${a.factors.map(f=>`<div class="factor"><span class="mark ${f.weight>0?'positive':f.weight<0?'negative':'neutral'}">${f.weight>0?'↑':f.weight<0?'↓':'–'}</span><strong>${esc(f.name)}</strong>${esc(f.detail)}</div>`).join('')}</div>
   <div class="insight-section"><h3>İZLENECEK SEVİYELER</h3><div class="insight-row"><span>Son 20 mum dip / tepe</span><strong>${quote}${fmt(i.support)} / ${quote}${fmt(i.resistance)}</strong></div><div class="insight-row"><span>Bollinger alt / üst</span><strong>${quote}${fmt(i.bollingerLower)} / ${quote}${fmt(i.bollingerUpper)}</strong></div></div>
   ${a.notes.length?`<div class="risk-note">${a.notes.map(n=>`• ${esc(n)}`).join('<br>')}</div>`:''}<p class="source-note">Kaynak: Binance spot · ${time(a.asOf)} TSİ · Yalnızca kapanmış mumlar.</p>`;
@@ -115,7 +118,7 @@ function drawOscillators(){
   for(let j=start;j<end;j++){const v=m.histogram[j];if(v===null)continue;c.fillStyle=v>=0?'#7ed5a5b0':'#e17f83b0';const xx=9+(j-start)*step,yy=center-v*scale;c.fillRect(xx,Math.min(center,yy),Math.max(1,step*.67),Math.max(1,Math.abs(yy-center)));}
   pathLine(c,m.line,j=>9+(j+start-start)*step, v=>center-v*scale,start,end,'#6aa7eb',1.2);
   pathLine(c,m.signal,j=>9+(j+start-start)*step,v=>center-v*scale,start,end,'#e9c98c',1.1);
-  $('#rsi-value').textContent=rs.at(-1)?.toFixed(1)||'—';$('#macd-value').textContent=m.histogram.at(-1)?.toFixed(4)||'—';
+  $('#rsi-value').textContent=rs.at(-1)?.toFixed(1)||'—';$('#macd-value').textContent=oscillator(m.histogram.at(-1));
 }
 function redraw(){drawPrice();drawOscillators();}
 async function loadMarket(){
