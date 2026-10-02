@@ -1,7 +1,11 @@
 // CMC IDs were checked against CoinMarketCap's cryptocurrency quotes endpoint.
 // Unknown Binance symbols are deliberately not matched by ticker alone.
 export const CMC_IDS=Object.freeze({BTC:1,ETH:1027,SOL:5426,BNB:1839,XRP:52,DOGE:74,ADA:2010,
-  AVAX:5805,LINK:1975,DOT:6636,CRV:6538,LTC:2,TRX:1958,SUI:20947,UNI:7083});
+  AVAX:5805,LINK:1975,DOT:6636,CRV:6538,LTC:2,TRX:1958,SUI:20947,UNI:7083,
+  SHIB:5994,PEPE:24478,BCH:1831,NEAR:6535,APT:21794,OP:11840,ARB:11841,ATOM:3794,
+  FIL:2280,ETC:1321,XLM:512,HBAR:4642,AAVE:7278,INJ:7226,SEI:23149,RENDER:5690,
+  WIF:28752,BONK:23095,POL:28321,ALGO:4030,SAND:6210,GRT:6719,ENA:30171,
+  JUP:29210,FET:3773,WLD:13502,TAO:22974,ONDO:21159,PAXG:4705,TRUMP:35336});
 const number=x=>x===null||x===undefined?null:Number.isFinite(Number(x))?Number(x):null;
 
 export function quoteAsset(symbol){return ['FDUSD','USDT','USDC','TRY','BTC'].find(q=>symbol.endsWith(q))||null;}
