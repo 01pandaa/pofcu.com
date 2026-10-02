@@ -2,14 +2,14 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAIRS, INTERVALS, parseCandles, analyze } from './engine.mjs';
+import { INTERVALS, parseCandles, analyze } from './engine.mjs';
 import { scanSymbols, scanRow } from './scanner.mjs';
+import { cmcId, contextIntervals, normalizeCmc, normalizeFear, assessOutlook } from './outlook.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
 const port=Number(process.env.PORT)||3000;
 const cache=new Map(),inflight=new Map(),ipUsage=new Map();
 const daily={date:'',count:0};
-const allowedCoins=new Set(Object.values(PAIRS).map(p=>p.gecko));
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon'};
 function send(res,status,value){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(value));}
 async function upstream(url,ttl){
@@ -26,6 +26,25 @@ async function upstream(url,ttl){
 function validSymbol(symbol){return typeof symbol==='string'&&/^[A-Z0-9]{3,20}$/.test(symbol);}
 function validate(url){const symbol=url.searchParams.get('symbol'),interval=url.searchParams.get('interval');if(!validSymbol(symbol)||!INTERVALS[interval])throw Object.assign(new Error('Desteklenmeyen parite veya zaman aralığı.'),{status:400});return {symbol,interval};}
 async function candles(symbol,interval){return upstream(`https://data-api.binance.vision/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=260`,45_000);}
+async function outlook(symbol,interval){
+  const id=cmcId(symbol),intervals=contextIntervals(interval);
+  const jobs=[candles(symbol,interval),...intervals.map(tf=>candles(symbol,tf)),
+    id?upstream(`https://pro-api.coinmarketcap.com/public-api/v3/cryptocurrency/quotes/latest?id=${id}&convert=USD`,120_000):Promise.resolve(null),
+    upstream('https://pro-api.coinmarketcap.com/public-api/v3/fear-and-greed/latest',600_000)];
+  const results=await Promise.allSettled(jobs);
+  if(results[0].status!=='fulfilled')throw new Error('Binance temel periyot verisi alınamadı.');
+  const parse=(rows,tf)=>{const closed=parseCandles(rows);if(Date.now()-closed.at(-1).closeTime>INTERVALS[tf]*3)throw new Error('Eski mum verisi.');return analyze(closed,tf,symbol);};
+  const base=parse(results[0].value,interval),comparisons=[];
+  for(let j=0;j<intervals.length;j++){
+    if(results[j+1].status==='fulfilled')try{const a=parse(results[j+1].value,intervals[j]);comparisons.push({interval:a.interval,score:a.score,direction:a.direction,asOf:a.asOf});}catch(_){}
+  }
+  let cmc=null,fear=null;
+  if(id&&results.at(-2).status==='fulfilled')try{cmc=normalizeCmc(results.at(-2).value,id);}catch(_){}
+  if(results.at(-1).status==='fulfilled')try{fear=normalizeFear(results.at(-1).value);}catch(_){}
+  return {symbol,interval,asOf:base.asOf,technical:{score:base.score,direction:base.direction,advanced:base.advanced,
+    adx:base.indicators.adx,atrPercent:base.indicators.atrPercent},comparisons,cmc,fear,
+    cmcCoverage:id?'known-asset':'unverified-symbol',assessment:assessOutlook(base,comparisons,cmc)};
+}
 async function scanner(url){
   const scope=url.searchParams.get('scope')||'watch',interval=url.searchParams.get('interval')||'1h';
   if(!INTERVALS[interval])throw Object.assign(new Error('Zaman aralığı geçersiz.'),{status:400});
@@ -74,7 +93,7 @@ async function aiComment(req,res){
     method:'POST',signal:AbortSignal.timeout(25000),headers:{authorization:`Bearer ${process.env.OPENAI_API_KEY}`,'content-type':'application/json'},
     body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-5.4-mini',store:false,max_output_tokens:500,
       instructions:'Sen Pofçu piyasa veri yorumcususun. Yalnızca verilen hesaplanmış verileri Türkçe, anlaşılır ve 110 kelimeyi geçmeden açıkla. Sonucun zaman aralığına, kapanmış mumlara ve belirsizliğe bağlı olduğunu belirt. Fiyat hedefi, garanti, kesin al/sat emri, kişisel yatırım tavsiyesi, uydurma haber, zincir üstü veri veya para akışı iddiası verme. Göstergeler çelişiyorsa bunu açıkça söyle.',
-      input:JSON.stringify({symbol:snapshot.symbol,interval:snapshot.interval,asOf:snapshot.asOf,price:snapshot.price,direction:snapshot.direction,score:snapshot.score,indicators:snapshot.indicators,factors:snapshot.factors,notes:snapshot.notes})})
+      input:JSON.stringify({symbol:snapshot.symbol,interval:snapshot.interval,asOf:snapshot.asOf,price:snapshot.price,direction:snapshot.direction,score:snapshot.score,indicators:snapshot.indicators,advanced:snapshot.advanced,factors:snapshot.factors,notes:snapshot.notes})})
   });
   if(!response.ok)throw new Error(`Yapay zekâ sağlayıcısı yanıt vermedi (${response.status}).`);
   const data=await response.json();
@@ -110,11 +129,14 @@ const server=http.createServer(async(req,res)=>{
       try{const data=await pending;cache.set(key,{data,exp:Date.now()+30_000});return send(res,200,data);}
       finally{inflight.delete(key);}
     }
-    if(url.pathname==='/api/market'&&req.method==='GET'){const {symbol,interval}=validate(url);return send(res,200,{candles:await candles(symbol,interval)});}
-    if(url.pathname==='/api/fundamentals'&&req.method==='GET'){
-      const coin=url.searchParams.get('coin');if(!allowedCoins.has(coin))return send(res,400,{error:'Desteklenmeyen varlık.'});
-      return send(res,200,await upstream(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coin}&price_change_percentage=24h`,90_000));
+    if(url.pathname==='/api/outlook'&&req.method==='GET'){
+      const {symbol,interval}=validate(url),key=`outlook:${symbol}:${interval}`,hit=cache.get(key);
+      if(hit&&hit.exp>Date.now())return send(res,200,hit.data);
+      let pending=inflight.get(key);if(!pending){pending=outlook(symbol,interval);inflight.set(key,pending);}
+      try{const data=await pending;cache.set(key,{data,exp:Date.now()+60_000});return send(res,200,data);}
+      finally{inflight.delete(key);}
     }
+    if(url.pathname==='/api/market'&&req.method==='GET'){const {symbol,interval}=validate(url);return send(res,200,{candles:await candles(symbol,interval)});}
     if(url.pathname==='/api/yorum'&&req.method==='POST')return await aiComment(req,res);
     if(url.pathname.startsWith('/api/'))return send(res,404,{error:'API yolu bulunamadı.'});
     if(req.method!=='GET'&&req.method!=='HEAD')return send(res,405,{error:'Desteklenmeyen istek.'});
