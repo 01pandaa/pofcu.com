@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { INTERVALS, parseCandles, analyze } from './engine.mjs';
-import { scanSymbols, scanRow } from './scanner.mjs';
+import { scanSymbols, scanRow, SCAN_PRESETS } from './scanner.mjs';
 import { cmcId, contextIntervals, normalizeCmc, normalizeFear, assessOutlook } from './outlook.mjs';
 
 const root=fileURLToPath(new URL('.',import.meta.url));
@@ -12,11 +12,11 @@ const cache=new Map(),inflight=new Map(),ipUsage=new Map();
 const daily={date:'',count:0};
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.ico':'image/x-icon'};
 function send(res,status,value){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'});res.end(JSON.stringify(value));}
-async function upstream(url,ttl){
+async function upstream(url,ttl,timeout=10000){
   const hit=cache.get(url);if(hit&&hit.exp>Date.now())return hit.data;
   if(inflight.has(url))return inflight.get(url);
   const pending=(async()=>{
-    const response=await fetch(url,{signal:AbortSignal.timeout(10000),headers:{accept:'application/json'}});
+    const response=await fetch(url,{signal:AbortSignal.timeout(timeout),headers:{accept:'application/json'}});
     if(!response.ok)throw new Error(`Veri kaynağı hatası: ${response.status}`);
     const data=await response.json();cache.set(url,{data,exp:Date.now()+ttl});return data;
   })();
@@ -49,24 +49,28 @@ async function scanner(url){
   const scope=url.searchParams.get('scope')||'watch',interval=url.searchParams.get('interval')||'1h';
   if(!INTERVALS[interval])throw Object.assign(new Error('Zaman aralığı geçersiz.'),{status:400});
   const requested=url.searchParams.get('symbols')||'';
-  // Reject malformed inputs before issuing any requests to the data provider.
-  try{scanSymbols(scope,requested,new Set());}catch(e){throw Object.assign(e,{status:400});}
-  const info=await upstream('https://data-api.binance.vision/api/v3/exchangeInfo',3_600_000);
-  const active=new Set((info.symbols||[]).filter(s=>s.status==='TRADING'&&s.isSpotTradingAllowed!==false).map(s=>s.symbol));
-  const symbols=scanSymbols(scope,requested,active);
+  // Every candidate is verified by its Binance candles and ticker request below.
+  // A slow exchangeInfo response must not block the whole market scan.
+  let symbols;
+  try{
+    const candidates=scope==='watch'?requested.split(',').map(s=>s.trim()):SCAN_PRESETS[scope]||[];
+    symbols=scanSymbols(scope,requested,new Set(candidates));
+  }catch(e){throw Object.assign(e,{status:400});}
   if(!symbols.length)return {scope,interval,rows:[],failed:[],checkedAt:Date.now()};
   const rows=[],failed=[];
   let cursor=0;
-  await Promise.all(Array.from({length:Math.min(4,symbols.length)},async()=>{
+  await Promise.all(Array.from({length:Math.min(6,symbols.length)},async()=>{
     while(cursor<symbols.length){
       const symbol=symbols[cursor++];
-      try{
-        const [klines,ticker]=await Promise.all([
-          candles(symbol,interval),
-          upstream(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`,15_000)
-        ]);
-        rows.push(scanRow(symbol,interval,klines,ticker));
-      }catch(_){failed.push(symbol);}
+      for(let attempt=0;attempt<2;attempt++){
+        try{
+          const [klines,ticker]=await Promise.all([
+            candles(symbol,interval),
+            upstream(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${symbol}`,15_000)
+          ]);
+          rows.push(scanRow(symbol,interval,klines,ticker));break;
+        }catch(_){if(attempt===1)failed.push(symbol);}
+      }
     }
   }));
   rows.sort((a,b)=>symbols.indexOf(a.symbol)-symbols.indexOf(b.symbol));
@@ -107,7 +111,7 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/api/status'&&req.method==='GET')return send(res,200,{ai:!!process.env.OPENAI_API_KEY});
     if(url.pathname==='/api/symbols'&&req.method==='GET'){
       const q=(url.searchParams.get('q')||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,16);
-      const info=await upstream('https://data-api.binance.vision/api/v3/exchangeInfo',3_600_000);
+      const info=await upstream('https://data-api.binance.vision/api/v3/exchangeInfo',3_600_000,25_000);
       const symbols=(info.symbols||[]).filter(s=>s.status==='TRADING'&&['USDT','TRY','USDC','BTC','FDUSD'].includes(s.quoteAsset));
       const results=symbols.filter(s=>!q||s.symbol.includes(q)||s.baseAsset.includes(q)).sort((a,b)=>{
         const rank=x=>x.symbol===q?0:x.symbol.startsWith(q)?1:x.quoteAsset==='USDT'?2:x.quoteAsset==='TRY'?3:4;
